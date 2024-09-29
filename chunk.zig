@@ -10,13 +10,13 @@ pub const Chunk = struct {
     constants: v.ValueArray,
     lines: []i32,
 
-    pub fn init(allocator: *std.mem.Allocator) Chunk {
+    pub fn init(allocator: *std.mem.Allocator) !Chunk {
         const chunk = Chunk{
-            .code = &[_]u8{},
+            .code = try allocator.alloc(u8, 8),
             .len = 0,
             .capacity = 0,
             .constants = v.ValueArray.init(allocator),
-            .lines = undefined,
+            .lines = try allocator.alloc(i32, 8),
         };
         return chunk;
     }
@@ -25,7 +25,6 @@ pub const Chunk = struct {
         allocator.free(self.code);
         self.constants.free();
         allocator.free(self.lines);
-        self.code = &[_]u8{};
         self.len = 0;
         self.capacity = 0;
     }
