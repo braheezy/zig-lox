@@ -1,0 +1,17 @@
+{
+	"name": "Zig Container",
+	"image": "localhost/zig-dev:latest",
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"ziglang.vscode-zig"
+			],
+			"settings": {
+				"terminal.integrated.defaultProfile.linux": "bash"
+			}
+		}
+	},
+	"postCreateCommand": "zig version",
+	// b/c rootless docker is being used
+	"remoteUser": "root"
+}
