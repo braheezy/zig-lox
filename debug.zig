@@ -3,7 +3,7 @@ const ch = @import("chunk.zig");
 const v = @import("value.zig");
 const print = std.debug.print;
 
-const OpCode = ch.OpCode;
+pub const OpCode = ch.OpCode;
 
 pub fn disassembleChunk(chunk: *ch.Chunk, name: []const u8) void {
     print("== {s} ==\n", .{name});
@@ -12,7 +12,7 @@ pub fn disassembleChunk(chunk: *ch.Chunk, name: []const u8) void {
     while (offset < chunk.len) : (offset = disassembleInstruction(chunk, offset)) {}
 }
 
-fn disassembleInstruction(chunk: *ch.Chunk, offset: usize) usize {
+pub fn disassembleInstruction(chunk: *ch.Chunk, offset: usize) usize {
     print("{x:0>4} ", .{offset});
 
     if (offset > 0 and chunk.lines[offset] == chunk.lines[offset - 1]) {
@@ -25,6 +25,11 @@ fn disassembleInstruction(chunk: *ch.Chunk, offset: usize) usize {
 
     switch (instruction) {
         OpCode.OP_CONSTANT => return constantInstruction("OP_CONSTANT", chunk, offset),
+        OpCode.OP_ADD => return simpleInstruction("OP_ADD", offset),
+        OpCode.OP_SUBTRACT => return simpleInstruction("OP_SUBTRACT", offset),
+        OpCode.OP_MULTIPLY => return simpleInstruction("OP_MULTIPLY", offset),
+        OpCode.OP_DIVIDE => return simpleInstruction("OP_DIVIDE", offset),
+        OpCode.OP_NEGATE => return simpleInstruction("OP_NEGATE", offset),
         OpCode.OP_RETURN => return simpleInstruction("OP_RETURN", offset),
         else => {
             print("Unknown opcode {d}\n", .{instruction});

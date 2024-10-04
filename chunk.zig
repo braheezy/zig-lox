@@ -1,7 +1,7 @@
 const std = @import("std");
 const v = @import("value.zig");
 
-pub const OpCode = enum(u8) { OP_CONSTANT, OP_RETURN, _ };
+pub const OpCode = enum(u8) { OP_CONSTANT, OP_ADD, OP_SUBTRACT, OP_MULTIPLY, OP_DIVIDE, OP_NEGATE, OP_RETURN, _ };
 
 pub const Chunk = struct {
     code: []u8,
@@ -22,6 +22,9 @@ pub const Chunk = struct {
     }
 
     pub fn free(self: *Chunk, allocator: *std.mem.Allocator) void {
+        if (self.capacity == 0) {
+            return;
+        }
         allocator.free(self.code);
         self.constants.free();
         allocator.free(self.lines);
