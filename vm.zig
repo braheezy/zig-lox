@@ -1,11 +1,13 @@
-const Chunk = @import("chunk.zig").Chunk;
 const std = @import("std");
+
+const Chunk = @import("chunk.zig").Chunk;
+const compile = @import("compile.zig").compile;
 const debug = @import("debug.zig");
-const Value = @import("value.zig").Value;
-const OpCode = debug.OpCode;
-const printValue = @import("value.zig").printValue;
 const DEBUG_TRACE_EXECUTION = @import("main.zig").DEBUG_TRACE_EXECUTION;
+const Value = @import("value.zig").Value;
+const printValue = @import("value.zig").printValue;
 const print = std.debug.print;
+const OpCode = debug.OpCode;
 
 pub const InterpretResult = enum(u8) { INTERPRET_OK, INTERPRET_COMPILE_ERROR, INTERPRET_RUNTIME_ERROR };
 
@@ -27,14 +29,14 @@ pub const VM = struct {
         self.stack.deinit();
     }
 
-    pub fn resetStack(self: *VM) void {
-        self.stack.clearRetainingCapacity();
+    pub fn interpret(self: *VM, source: [:0]u8) InterpretResult {
+        _ = self;
+        compile(source);
+        return InterpretResult.INTERPRET_OK;
     }
 
-    pub fn interpret(self: *VM, chunk: *Chunk) !InterpretResult {
-        self.chunk = chunk;
-        self.ip = chunk.code[0..];
-        return self.run();
+    pub fn resetStack(self: *VM) void {
+        self.stack.clearRetainingCapacity();
     }
 
     pub fn run(self: *VM) !InterpretResult {
@@ -85,26 +87,27 @@ pub const VM = struct {
         const chunk = self.chunk orelse unreachable;
         return chunk.constants.values.items[self.readByte()];
     }
+
     fn binaryOp(self: *VM, comptime op: fn (a: Value, b: Value) Value) !void {
         const b = self.stack.pop();
         const a = self.stack.pop();
         const result = op(a, b);
         try self.stack.append(result);
     }
-
-    fn opAdd(a: Value, b: Value) Value {
-        return a + b;
-    }
-
-    fn opSubtract(a: Value, b: Value) Value {
-        return a - b;
-    }
-
-    fn opMultiply(a: Value, b: Value) Value {
-        return a * b;
-    }
-
-    fn opDivide(a: Value, b: Value) Value {
-        return a / b;
-    }
 };
+
+fn opAdd(a: Value, b: Value) Value {
+    return a + b;
+}
+
+fn opSubtract(a: Value, b: Value) Value {
+    return a - b;
+}
+
+fn opMultiply(a: Value, b: Value) Value {
+    return a * b;
+}
+
+fn opDivide(a: Value, b: Value) Value {
+    return a / b;
+}
