@@ -53,15 +53,16 @@ pub const Token = struct {
     line: u32,
 };
 
+pub var scanner: Scanner = undefined;
+
 pub const Scanner = struct {
     source: [:0]const u8,
     start: usize,
     current: usize,
     line: u32,
 
-    pub fn init(source: [:0]u8) Scanner {
-        const scanner = Scanner{ .source = source, .start = 0, .current = 0, .line = 1 };
-        return scanner;
+    pub fn init(source: [:0]u8) void {
+        scanner = Scanner{ .source = source, .start = 0, .current = 0, .line = 1 };
     }
 
     fn isDigit(c: u8) bool {
@@ -105,7 +106,7 @@ pub const Scanner = struct {
         return self.current >= self.source.len;
     }
 
-    fn advance(self: *Scanner) u8 {
+    pub fn advance(self: *Scanner) u8 {
         const c = self.source[self.current];
         self.current += 1;
         return c;

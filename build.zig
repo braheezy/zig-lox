@@ -1,5 +1,4 @@
 const std = @import("std");
-
 pub fn build(b: *std.Build) void {
     const exe = b.addExecutable(.{
         .name = "zig-lox",
@@ -16,7 +15,13 @@ pub fn build(b: *std.Build) void {
     exe.root_module.addOptions("config", options);
 
     const run_exe = b.addRunArtifact(exe);
+    run_exe.addArg("test.lox");
 
-    const run_step = b.step("run", "Run the application");
+    const run_step = b.step("run", "Run test.lox");
     run_step.dependOn(&run_exe.step);
+
+    const repl_exe = b.addRunArtifact(exe);
+
+    const repl_step = b.step("repl", "Run the repl");
+    repl_step.dependOn(&repl_exe.step);
 }

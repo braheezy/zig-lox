@@ -12,27 +12,37 @@ const OpCode = debug.OpCode;
 pub const InterpretResult = enum(u8) { INTERPRET_OK, INTERPRET_COMPILE_ERROR, INTERPRET_RUNTIME_ERROR };
 
 pub const VM = struct {
+    allocator: *std.mem.Allocator,
     chunk: ?*Chunk,
     ip: ?[]u8,
     stack: std.ArrayList(Value),
 
     pub fn init(allocator: *std.mem.Allocator) VM {
         const stack = std.ArrayList(Value).init(allocator.*);
-        const vm = VM{ .chunk = null, .ip = null, .stack = stack };
-        return vm;
+        const v = VM{ .allocator = allocator, .chunk = null, .ip = null, .stack = stack };
+        // vm = &v;
+        return v;
     }
 
     pub fn free(self: *VM, allocator: *std.mem.Allocator) void {
-        if (self.chunk) |chunk| {
-            chunk.free(allocator);
-        }
+        // if (self.chunk) |chunk| {
+        //     chunk.free(allocator);
+        // }
+        _ = allocator;
         self.stack.deinit();
     }
 
-    pub fn interpret(self: *VM, source: [:0]u8) InterpretResult {
-        _ = self;
-        compile(source);
-        return InterpretResult.INTERPRET_OK;
+    pub fn interpret(self: *VM, source: [:0]u8) !InterpretResult {
+        var chunk = try Chunk.init(self.allocator);
+        defer chunk.free(self.allocator);
+        if (!compile(source, &chunk)) {
+            return InterpretResult.INTERPRET_COMPILE_ERROR;
+        }
+
+        self.chunk = &chunk;
+        self.ip = self.chunk.?.code;
+
+        return try self.run();
     }
 
     pub fn resetStack(self: *VM) void {
@@ -57,17 +67,17 @@ pub const VM = struct {
             const instruction: OpCode = @enumFromInt(self.readByte());
 
             switch (instruction) {
-                OpCode.OP_ADD => try self.binaryOp(opAdd),
-                OpCode.OP_SUBTRACT => try self.binaryOp(opSubtract),
-                OpCode.OP_MULTIPLY => try self.binaryOp(opMultiply),
-                OpCode.OP_DIVIDE => try self.binaryOp(opDivide),
-                OpCode.OP_NEGATE => self.stack.items[self.stack.items.len - 1] = -self.stack.getLast(),
-                OpCode.OP_RETURN => {
+                OpCode.ADD => try self.binaryOp(opAdd),
+                OpCode.SUBTRACT => try self.binaryOp(opSubtract),
+                OpCode.MULTIPLY => try self.binaryOp(opMultiply),
+                OpCode.DIVIDE => try self.binaryOp(opDivide),
+                OpCode.NEGATE => self.stack.items[self.stack.items.len - 1] = -self.stack.getLast(),
+                OpCode.RETURN => {
                     printValue(self.stack.pop());
                     print("\n", .{});
                     return InterpretResult.INTERPRET_OK;
                 },
-                OpCode.OP_CONSTANT => {
+                OpCode.CONSTANT => {
                     const constant = self.readConstant();
                     try self.stack.append(constant);
                 },

@@ -1,4 +1,5 @@
 const std = @import("std");
+
 const ch = @import("chunk.zig");
 const v = @import("value.zig");
 const print = std.debug.print;
@@ -24,13 +25,13 @@ pub fn disassembleInstruction(chunk: *ch.Chunk, offset: usize) usize {
     const instruction: OpCode = @enumFromInt(chunk.code[offset]);
 
     switch (instruction) {
-        OpCode.OP_CONSTANT => return constantInstruction("OP_CONSTANT", chunk, offset),
-        OpCode.OP_ADD => return simpleInstruction("OP_ADD", offset),
-        OpCode.OP_SUBTRACT => return simpleInstruction("OP_SUBTRACT", offset),
-        OpCode.OP_MULTIPLY => return simpleInstruction("OP_MULTIPLY", offset),
-        OpCode.OP_DIVIDE => return simpleInstruction("OP_DIVIDE", offset),
-        OpCode.OP_NEGATE => return simpleInstruction("OP_NEGATE", offset),
-        OpCode.OP_RETURN => return simpleInstruction("OP_RETURN", offset),
+        OpCode.CONSTANT => return constantInstruction("OP_CONSTANT", chunk, offset),
+        OpCode.ADD => return simpleInstruction("OP_ADD", offset),
+        OpCode.SUBTRACT => return simpleInstruction("OP_SUBTRACT", offset),
+        OpCode.MULTIPLY => return simpleInstruction("OP_MULTIPLY", offset),
+        OpCode.DIVIDE => return simpleInstruction("OP_DIVIDE", offset),
+        OpCode.NEGATE => return simpleInstruction("OP_NEGATE", offset),
+        OpCode.RETURN => return simpleInstruction("OP_RETURN", offset),
         else => {
             print("Unknown opcode {d}\n", .{instruction});
             return offset + 1;

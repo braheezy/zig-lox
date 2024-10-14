@@ -2,7 +2,6 @@ const std = @import("std");
 
 const config = @import("config");
 
-
 const ch = @import("chunk.zig");
 const InterpretResult = @import("vm.zig").InterpretResult;
 const VM = @import("vm.zig").VM;
@@ -11,13 +10,19 @@ const OpenError = std.fs.Dir.OpenError;
 const OpCode = ch.OpCode;
 
 pub const DEBUG_TRACE_EXECUTION = config.debug;
+pub const DEBUG_PRINT_CODE = config.debug;
 const oneMB = 1.049E+6;
 
-pub fn main() void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    var allocator = gpa.allocator();
+var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+pub var allocator = gpa.allocator();
 
-    var vm = VM.init(&allocator);
+var vm: VM = undefined;
+
+pub fn main() !void {
+    defer if (gpa.deinit() == .leak) {
+        std.process.exit(1);
+    };
+    vm = VM.init(&allocator);
     defer vm.free(&allocator);
 
     // Read arguments
@@ -28,16 +33,16 @@ pub fn main() void {
     defer std.process.argsFree(allocator, args);
 
     if (args.len == 1) {
-        repl(&vm);
+        try repl();
     } else if (args.len == 2) {
-        runFile(&vm, args[1]);
+        try runFile(args[1]);
     } else {
         print("Usage: zig-lox [path]\n", .{});
         std.process.exit(64);
     }
 }
 
-pub fn repl(vm: *VM) void {
+pub fn repl() !void {
     const stdin = std.io.getStdIn();
     var buffer: [1024]u8 = undefined;
     while (true) {
@@ -51,11 +56,17 @@ pub fn repl(vm: *VM) void {
             break;
         };
 
-        _ = vm.interpret(line);
+        var sentinel_line = try allocator.allocSentinel(u8, line.len, 0);
+        defer allocator.free(sentinel_line);
+
+        // Copy input into sentinel array
+        @memcpy(sentinel_line[0..line.len], line);
+
+        _ = try vm.interpret(sentinel_line);
     }
 }
 
-pub fn runFile(vm: *VM, path: []u8) void {
+pub fn runFile(path: []u8) !void {
     print("running file: {s}\n", .{path});
     const file = std.fs.cwd().openFile(path, .{}) catch |err| {
         print("Could not open file {s}: {s}.\n", .{ path, @errorName(err) });
@@ -63,7 +74,6 @@ pub fn runFile(vm: *VM, path: []u8) void {
     };
     defer file.close();
 
-    const allocator = std.heap.page_allocator;
     const file_bytes: [:0]u8 = file.readToEndAllocOptions(
         allocator,
         oneMB,
@@ -74,13 +84,14 @@ pub fn runFile(vm: *VM, path: []u8) void {
         print("Failed to read file {s}: {s}.\n", .{ path, @errorName(err) });
         std.process.exit(74);
     };
-    const result = vm.interpret(file_bytes);
+    defer allocator.free(file_bytes);
+    const result = try vm.interpret(file_bytes);
 
     if (result == InterpretResult.INTERPRET_COMPILE_ERROR) std.process.exit(65);
     if (result == InterpretResult.INTERPRET_RUNTIME_ERROR) std.process.exit(70);
 }
 
-fn nextLine(reader: anytype, buffer: []u8) !?[:0]u8 {
+fn nextLine(reader: anytype, buffer: []u8) !?[]u8 {
     var line = (try reader.readUntilDelimiterOrEof(
         buffer,
         '\n',
@@ -90,6 +101,5 @@ fn nextLine(reader: anytype, buffer: []u8) !?[:0]u8 {
         line = std.mem.trimRight(u8, line, "\r");
     }
 
-    line[line.len] = 0;
-    return line[0.. :0];
+    return line;
 }
