@@ -1,8 +1,8 @@
 const std = @import("std");
-pub fn build(b: *std.Build) void {
+pub fn build(b: *std.Build) !void {
     const exe = b.addExecutable(.{
         .name = "zig-lox",
-        .root_source_file = b.path("main.zig"),
+        .root_source_file = b.path("src/main.zig"),
         .target = b.host,
     });
 
@@ -15,13 +15,77 @@ pub fn build(b: *std.Build) void {
     exe.root_module.addOptions("config", options);
 
     const run_exe = b.addRunArtifact(exe);
-    run_exe.addArg("test.lox");
 
-    const run_step = b.step("run", "Run test.lox");
+    const run_step = b.step("run", "Run");
     run_step.dependOn(&run_exe.step);
 
-    const repl_exe = b.addRunArtifact(exe);
+    const main_test_step = b.step("test", "Run all tests");
+    try addTests(b, exe, main_test_step);
 
-    const repl_step = b.step("repl", "Run the repl");
-    repl_step.dependOn(&repl_exe.step);
+    // New test for REPL mode
+    // const test_repl_exe = b.addRunArtifact(exe);
+    // test_repl_exe.addArg("--eval");
+
+    // // Set stdin data
+    // test_repl_exe.setStdIn(std.Build.Step.Run.StdIn{ .bytes = "1 + 1\n" });
+    // // Add expected stdout check
+    // test_repl_exe.expectStdOutEqual("2\n");
+    // main_test_step.dependOn(&test_repl_exe.step);
+
+    // // New test for file execution
+    // const test_file_exe = b.addRunArtifact(exe);
+    // const test_file_path = b.path("test.lox");
+    // test_file_exe.addFileArg(test_file_path);
+
+    // // Add expected stdout check
+    // test_file_exe.expectStdOutEqual("2\n");
+
+    // // Make test_file_step depend on test_file_exe
+    // main_test_step.dependOn(&test_file_exe.step);
+}
+
+fn addTests(b: *std.Build, exe: *std.Build.Step.Compile, test_step: *std.Build.Step) !void {
+    // Define the test case structure
+    const TestCase = struct {
+        input: []const u8,
+        expected_output: []const u8,
+        is_file_test: bool = false,
+    };
+
+    // Define the test cases
+    const test_cases = &[_]TestCase{
+        // REPL tests
+        .{ .input = "1 + 1\n", .expected_output = "2\n" },
+        .{ .input = "2 * 3\n", .expected_output = "6\n" },
+        .{ .input = "5 - 2\n", .expected_output = "3\n" },
+        // File test
+        .{ .input = "test.lox", .expected_output = "2\n", .is_file_test = true },
+    };
+
+    // Iterate over the test cases and create test steps
+    for (test_cases) |test_case| {
+        if (test_case.is_file_test) {
+            const test_file_exe = b.addRunArtifact(exe);
+            const test_file_path = b.path(test_case.input);
+            test_file_exe.addFileArg(test_file_path);
+
+            // Add expected stdout check
+            test_file_exe.expectStdOutEqual(test_case.expected_output);
+
+            // Add the test step to the main test step
+            test_step.dependOn(&test_file_exe.step);
+        } else {
+            const test_repl_exe = b.addRunArtifact(exe);
+            test_repl_exe.addArg("--eval");
+
+            // Set stdin data
+            test_repl_exe.setStdIn(std.Build.Step.Run.StdIn{ .bytes = test_case.input });
+
+            // Add expected stdout check
+            test_repl_exe.expectStdOutEqual(test_case.expected_output);
+
+            // Add the test step to the main test step
+            test_step.dependOn(&test_repl_exe.step);
+        }
+    }
 }

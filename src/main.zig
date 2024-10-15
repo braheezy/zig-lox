@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const config = @import("config");
+// const config = @import("config");
 
 const ch = @import("chunk.zig");
 const InterpretResult = @import("vm.zig").InterpretResult;
@@ -9,8 +9,8 @@ const print = std.debug.print;
 const OpenError = std.fs.Dir.OpenError;
 const OpCode = ch.OpCode;
 
-pub const DEBUG_TRACE_EXECUTION = config.debug;
-pub const DEBUG_PRINT_CODE = config.debug;
+pub const DEBUG_TRACE_EXECUTION = false;
+pub const DEBUG_PRINT_CODE = false;
 const oneMB = 1.049E+6;
 
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -22,8 +22,10 @@ pub fn main() !void {
     defer if (gpa.deinit() == .leak) {
         std.process.exit(1);
     };
-    vm = VM.init(&allocator);
-    defer vm.free(&allocator);
+    const stdout = std.io.getStdOut();
+    const writer = stdout.writer();
+    vm = VM.init(&allocator, writer);
+    defer vm.free();
 
     // Read arguments
     const args = std.process.argsAlloc(allocator) catch |err| {
@@ -32,27 +34,48 @@ pub fn main() !void {
     };
     defer std.process.argsFree(allocator, args);
 
-    if (args.len == 1) {
-        try repl();
-    } else if (args.len == 2) {
-        try runFile(args[1]);
+    var eval_mode = false;
+    var path: ?[]u8 = null;
+
+    var i: usize = 1;
+    while (i < args.len) {
+        const arg = args[i];
+        if (std.mem.eql(u8, arg, "--eval")) {
+            eval_mode = true;
+        } else if (path == null) {
+            path = arg;
+        } else {
+            print("Usage: zig-lox [--eval] [path]\n", .{});
+            std.process.exit(64);
+        }
+        i += 1;
+    }
+
+    if (path) |p| {
+        try runFile(p);
+    } else if (eval_mode) {
+        try repl(writer, true);
     } else {
-        print("Usage: zig-lox [path]\n", .{});
-        std.process.exit(64);
+        // No arguments, run normal REPL
+        try repl(writer, false);
     }
 }
 
-pub fn repl() !void {
+pub fn repl(writer: std.fs.File.Writer, hide_output: bool) !void {
     const stdin = std.io.getStdIn();
     var buffer: [1024]u8 = undefined;
     while (true) {
-        print("> ", .{});
+        if (!hide_output) {
+            try writer.print("> ", .{});
+        }
 
         const line = nextLine(stdin.reader(), &buffer) catch |err| {
             print("error reading next line: {s}", .{@errorName(err)});
             std.process.exit(12);
         } orelse {
-            print("\nbye!\n", .{});
+            if (!hide_output) {
+                try writer.print("\nbye!\n", .{});
+            }
             break;
         };
 
@@ -67,7 +90,6 @@ pub fn repl() !void {
 }
 
 pub fn runFile(path: []u8) !void {
-    print("running file: {s}\n", .{path});
     const file = std.fs.cwd().openFile(path, .{}) catch |err| {
         print("Could not open file {s}: {s}.\n", .{ path, @errorName(err) });
         std.process.exit(74);

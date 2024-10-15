@@ -76,27 +76,27 @@ pub const Scanner = struct {
     pub fn scanToken(self: *Scanner) Token {
         self.skipWhitespace();
         self.start = self.current;
-        if (self.isAtEnd()) return self.makeToken(TokenType.EOF);
+        if (self.isAtEnd()) return self.makeToken(.EOF);
 
         const c = self.advance();
         if (isAlpha(c)) return self.identifier();
         if (isDigit(c)) return self.number();
         switch (c) {
-            '(' => return self.makeToken(TokenType.LEFT_PAREN),
-            ')' => return self.makeToken(TokenType.RIGHT_PAREN),
-            '{' => return self.makeToken(TokenType.LEFT_BRACE),
-            '}' => return self.makeToken(TokenType.RIGHT_BRACE),
-            ';' => return self.makeToken(TokenType.SEMICOLON),
-            ',' => return self.makeToken(TokenType.COMMA),
-            '.' => return self.makeToken(TokenType.DOT),
-            '-' => return self.makeToken(TokenType.MINUS),
-            '+' => return self.makeToken(TokenType.PLUS),
-            '/' => return self.makeToken(TokenType.SLASH),
-            '*' => return self.makeToken(TokenType.STAR),
-            '!' => return self.makeToken(if (self.match('=')) TokenType.BANG_EQUAL else TokenType.BANG),
-            '=' => return self.makeToken(if (self.match('=')) TokenType.EQUAL_EQUAL else TokenType.EQUAL),
-            '<' => return self.makeToken(if (self.match('=')) TokenType.LESS_EQUAL else TokenType.LESS),
-            '>' => return self.makeToken(if (self.match('=')) TokenType.GREATER_EQUAL else TokenType.GREATER),
+            '(' => return self.makeToken(.LEFT_PAREN),
+            ')' => return self.makeToken(.RIGHT_PAREN),
+            '{' => return self.makeToken(.LEFT_BRACE),
+            '}' => return self.makeToken(.RIGHT_BRACE),
+            ';' => return self.makeToken(.SEMICOLON),
+            ',' => return self.makeToken(.COMMA),
+            '.' => return self.makeToken(.DOT),
+            '-' => return self.makeToken(.MINUS),
+            '+' => return self.makeToken(.PLUS),
+            '/' => return self.makeToken(.SLASH),
+            '*' => return self.makeToken(.STAR),
+            '!' => return self.makeToken(if (self.match('=')) .BANG_EQUAL else .BANG),
+            '=' => return self.makeToken(if (self.match('=')) .EQUAL_EQUAL else .EQUAL),
+            '<' => return self.makeToken(if (self.match('=')) .LESS_EQUAL else .LESS),
+            '>' => return self.makeToken(if (self.match('=')) .GREATER_EQUAL else .GREATER),
             '"' => return self.string(),
             else => return self.errorToken("Unexpected character."),
         }
@@ -153,39 +153,39 @@ pub const Scanner = struct {
 
     fn identiferType(self: *Scanner) TokenType {
         switch (self.source[self.start]) {
-            'a' => return self.checkKeyword(1, 2, "nd", TokenType.AND),
-            'c' => return self.checkKeyword(1, 4, "lass", TokenType.CLASS),
-            'e' => return self.checkKeyword(1, 3, "lse", TokenType.ELSE),
+            'a' => return self.checkKeyword(1, 2, "nd", .AND),
+            'c' => return self.checkKeyword(1, 4, "lass", .CLASS),
+            'e' => return self.checkKeyword(1, 3, "lse", .ELSE),
             'f' => {
                 if (self.current - self.start > 1) {
                     switch (self.source[self.start + 1]) {
-                        'a' => return self.checkKeyword(2, 3, "lse", TokenType.FALSE),
-                        'o' => return self.checkKeyword(2, 1, "r", TokenType.FOR),
-                        'u' => return self.checkKeyword(2, 1, "n", TokenType.FUN),
+                        'a' => return self.checkKeyword(2, 3, "lse", .FALSE),
+                        'o' => return self.checkKeyword(2, 1, "r", .FOR),
+                        'u' => return self.checkKeyword(2, 1, "n", .FUN),
                         else => {},
                     }
                 }
             },
-            'i' => return self.checkKeyword(1, 1, "f", TokenType.IF),
-            'n' => return self.checkKeyword(1, 2, "il", TokenType.NIL),
-            'o' => return self.checkKeyword(1, 1, "r", TokenType.OR),
-            'p' => return self.checkKeyword(1, 4, "rint", TokenType.PRINT),
-            'r' => return self.checkKeyword(1, 5, "eturn", TokenType.RETURN),
-            's' => return self.checkKeyword(1, 4, "uper", TokenType.SUPER),
+            'i' => return self.checkKeyword(1, 1, "f", .IF),
+            'n' => return self.checkKeyword(1, 2, "il", .NIL),
+            'o' => return self.checkKeyword(1, 1, "r", .OR),
+            'p' => return self.checkKeyword(1, 4, "rint", .PRINT),
+            'r' => return self.checkKeyword(1, 5, "eturn", .RETURN),
+            's' => return self.checkKeyword(1, 4, "uper", .SUPER),
             't' => {
                 if (self.current - self.start > 1) {
                     switch (self.source[self.start + 1]) {
-                        'h' => return self.checkKeyword(2, 2, "is", TokenType.THIS),
-                        't' => return self.checkKeyword(2, 2, "ue", TokenType.TRUE),
+                        'h' => return self.checkKeyword(2, 2, "is", .THIS),
+                        't' => return self.checkKeyword(2, 2, "ue", .TRUE),
                         else => {},
                     }
                 }
             },
-            'v' => return self.checkKeyword(1, 2, "ar", TokenType.VAR),
-            'w' => return self.checkKeyword(1, 4, "hile", TokenType.WHILE),
+            'v' => return self.checkKeyword(1, 2, "ar", .VAR),
+            'w' => return self.checkKeyword(1, 4, "hile", .WHILE),
             else => {},
         }
-        return TokenType.IDENTIFIER;
+        return .IDENTIFIER;
     }
 
     fn identifier(self: *Scanner) Token {
@@ -240,7 +240,7 @@ pub const Scanner = struct {
 
     fn errorToken(self: *Scanner, message: []const u8) Token {
         return Token{
-            .tokenType = TokenType.ERROR,
+            .tokenType = .ERROR,
             .start = message,
             .line = self.line,
         };

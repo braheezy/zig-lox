@@ -1,7 +1,7 @@
 const std = @import("std");
 
 const Chunk = @import("chunk.zig").Chunk;
-const compile = @import("compile.zig").compile;
+const cmp = @import("compile.zig");
 const debug = @import("debug.zig");
 const DEBUG_TRACE_EXECUTION = @import("main.zig").DEBUG_TRACE_EXECUTION;
 const Value = @import("value.zig").Value;
@@ -16,26 +16,22 @@ pub const VM = struct {
     chunk: ?*Chunk,
     ip: ?[]u8,
     stack: std.ArrayList(Value),
+    writer: std.fs.File.Writer,
 
-    pub fn init(allocator: *std.mem.Allocator) VM {
+    pub fn init(allocator: *std.mem.Allocator, writer: std.fs.File.Writer) VM {
         const stack = std.ArrayList(Value).init(allocator.*);
-        const v = VM{ .allocator = allocator, .chunk = null, .ip = null, .stack = stack };
-        // vm = &v;
+        const v = VM{ .allocator = allocator, .chunk = null, .ip = null, .stack = stack, .writer = writer };
         return v;
     }
 
-    pub fn free(self: *VM, allocator: *std.mem.Allocator) void {
-        // if (self.chunk) |chunk| {
-        //     chunk.free(allocator);
-        // }
-        _ = allocator;
+    pub fn free(self: *VM) void {
         self.stack.deinit();
     }
 
     pub fn interpret(self: *VM, source: [:0]u8) !InterpretResult {
         var chunk = try Chunk.init(self.allocator);
         defer chunk.free(self.allocator);
-        if (!compile(source, &chunk)) {
+        if (!cmp.global_compiler.compile(source, &chunk)) {
             return InterpretResult.INTERPRET_COMPILE_ERROR;
         }
 
@@ -67,17 +63,17 @@ pub const VM = struct {
             const instruction: OpCode = @enumFromInt(self.readByte());
 
             switch (instruction) {
-                OpCode.ADD => try self.binaryOp(opAdd),
-                OpCode.SUBTRACT => try self.binaryOp(opSubtract),
-                OpCode.MULTIPLY => try self.binaryOp(opMultiply),
-                OpCode.DIVIDE => try self.binaryOp(opDivide),
-                OpCode.NEGATE => self.stack.items[self.stack.items.len - 1] = -self.stack.getLast(),
-                OpCode.RETURN => {
-                    printValue(self.stack.pop());
-                    print("\n", .{});
+                .ADD => try self.binaryOp(opAdd),
+                .SUBTRACT => try self.binaryOp(opSubtract),
+                .MULTIPLY => try self.binaryOp(opMultiply),
+                .DIVIDE => try self.binaryOp(opDivide),
+                .NEGATE => self.stack.items[self.stack.items.len - 1] = -self.stack.getLast(),
+                .RETURN => {
+                    try printValue(self.stack.pop(), self.writer);
+                    try self.writer.print("\n", .{});
                     return InterpretResult.INTERPRET_OK;
                 },
-                OpCode.CONSTANT => {
+                .CONSTANT => {
                     const constant = self.readConstant();
                     try self.stack.append(constant);
                 },

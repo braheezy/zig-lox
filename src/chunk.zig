@@ -1,13 +1,13 @@
 const std = @import("std");
 
-const v = @import("value.zig");
+const value = @import("value.zig");
 pub const OpCode = enum(u8) { CONSTANT, ADD, SUBTRACT, MULTIPLY, DIVIDE, NEGATE, RETURN, _ };
 
 pub const Chunk = struct {
     code: []u8,
     len: usize,
     capacity: u8 = 0,
-    constants: v.ValueArray,
+    constants: value.ValueArray,
     lines: []u32,
 
     pub fn init(allocator: *std.mem.Allocator) !Chunk {
@@ -15,7 +15,7 @@ pub const Chunk = struct {
             .code = try allocator.alloc(u8, 8),
             .len = 0,
             .capacity = 0,
-            .constants = v.ValueArray.init(allocator),
+            .constants = value.ValueArray.init(allocator),
             .lines = try allocator.alloc(u32, 8),
         };
         return chunk;
@@ -43,8 +43,8 @@ pub const Chunk = struct {
         self.lines[self.len] = line;
         self.len += 1;
     }
-    pub fn addConstant(self: *Chunk, value: v.Value) u32 {
-        self.constants.write(value);
+    pub fn addConstant(self: *Chunk, constant: value.Value) u32 {
+        self.constants.write(constant);
         return @intCast(self.constants.values.items.len - 1);
     }
 

@@ -22,6 +22,6 @@ pub const ValueArray = struct {
     }
 };
 
-pub fn printValue(value: Value) void {
-    std.debug.print("{d}", .{value});
+pub fn printValue(value: Value, writer: std.fs.File.Writer) !void {
+    try writer.print("{d}", .{value});
 }
