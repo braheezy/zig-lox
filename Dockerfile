@@ -26,5 +26,6 @@ ENV PATH="/opt/zig:/opt/zls:$PATH"
 # Install zigimports tool
 RUN git clone https://github.com/braheezy/zigimports.git && \
     cd zigimports && \
+    git pull && \
     zig build --release=safe && \
     mv ./zig-out/bin/zigimports /usr/bin/

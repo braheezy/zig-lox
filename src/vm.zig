@@ -1,14 +1,14 @@
 const std = @import("std");
 
 const Chunk = @import("chunk.zig").Chunk;
+const OpCode = @import("chunk.zig").OpCode;
 const cmp = @import("compile.zig");
 const debug = @import("debug.zig");
 const DEBUG_TRACE_EXECUTION = @import("main.zig").DEBUG_TRACE_EXECUTION;
 const Value = @import("value.zig").Value;
-const valuesEqual = @import("value.zig").valuesEqual;
 const printValue = @import("value.zig").printValue;
+const valuesEqual = @import("value.zig").valuesEqual;
 const print = std.debug.print;
-const OpCode = @import("chunk.zig").OpCode;
 
 pub const InterpretResult = enum(u8) { INTERPRET_OK, INTERPRET_COMPILE_ERROR, INTERPRET_RUNTIME_ERROR };
 
