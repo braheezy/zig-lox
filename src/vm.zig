@@ -5,9 +5,10 @@ const cmp = @import("compile.zig");
 const debug = @import("debug.zig");
 const DEBUG_TRACE_EXECUTION = @import("main.zig").DEBUG_TRACE_EXECUTION;
 const Value = @import("value.zig").Value;
+const valuesEqual = @import("value.zig").valuesEqual;
 const printValue = @import("value.zig").printValue;
 const print = std.debug.print;
-const OpCode = debug.OpCode;
+const OpCode = @import("chunk.zig").OpCode;
 
 pub const InterpretResult = enum(u8) { INTERPRET_OK, INTERPRET_COMPILE_ERROR, INTERPRET_RUNTIME_ERROR };
 
@@ -45,12 +46,21 @@ pub const VM = struct {
         self.stack.clearRetainingCapacity();
     }
 
+    pub fn runtimeError(self: *VM, comptime format: []const u8, args: anytype) void {
+        std.debug.print(format, args);
+
+        const instruction = self.chunk.?.code.len - self.ip.?.len - 1;
+        const line = self.chunk.?.lines[instruction];
+        std.debug.print("\n[line {d}] in script\n", .{line});
+        self.resetStack();
+    }
+
     pub fn run(self: *VM) !InterpretResult {
         while (true) {
             if (DEBUG_TRACE_EXECUTION) {
                 print("        ", .{});
                 for (self.stack.items) |slot| {
-                    print("[ {d} ]", .{slot});
+                    print("[ {any} ]", .{slot});
                 }
                 print("\n", .{});
 
@@ -58,28 +68,57 @@ pub const VM = struct {
                 const ip_slice = self.ip orelse unreachable;
                 const offset = code_slice.code.len - ip_slice.len;
 
-                _ = debug.disassembleInstruction(code_slice, offset);
+                _ = try debug.disassembleInstruction(code_slice, offset);
             }
             const instruction: OpCode = @enumFromInt(self.readByte());
 
             switch (instruction) {
-                .ADD => try self.binaryOp(opAdd),
-                .SUBTRACT => try self.binaryOp(opSubtract),
-                .MULTIPLY => try self.binaryOp(opMultiply),
-                .DIVIDE => try self.binaryOp(opDivide),
-                .NEGATE => self.stack.items[self.stack.items.len - 1] = -self.stack.getLast(),
+                .EQUAL => {
+                    const b = self.stack.pop();
+                    const a = self.stack.pop();
+                    try self.stack.append(Value.bool(valuesEqual(a, b)));
+                },
+                .GREATER => _ = try self.binaryOp(bool, opGreater),
+                .LESS => _ = try self.binaryOp(bool, opLess),
+                .ADD => _ = try self.binaryOp(f64, opAdd),
+                .SUBTRACT => _ = try self.binaryOp(f64, opSubtract),
+                .MULTIPLY => _ = try self.binaryOp(f64, opMultiply),
+                .DIVIDE => _ = try self.binaryOp(f64, opDivide),
+                .NOT => try self.stack.append(Value.bool(isFalsey(self.stack.pop()))),
+                .NEGATE => {
+                    if (!self.peek(0).isNumber()) {
+                        self.runtimeError("Operand must be a number.", .{});
+                        return .INTERPRET_RUNTIME_ERROR;
+                    }
+                    const negated_value = -self.stack.pop().asNumber();
+                    try self.stack.append(Value.number(negated_value));
+                },
                 .RETURN => {
                     try printValue(self.stack.pop(), self.writer);
                     try self.writer.print("\n", .{});
-                    return InterpretResult.INTERPRET_OK;
+                    return .INTERPRET_OK;
                 },
                 .CONSTANT => {
                     const constant = self.readConstant();
                     try self.stack.append(constant);
                 },
-                else => print("unknown opcode", .{}),
+                .NIL => try self.stack.append(Value.nil()),
+                .TRUE => try self.stack.append(Value.bool(true)),
+                .FALSE => try self.stack.append(Value.bool(false)),
+                else => {
+                    print("unknown opcode", .{});
+                    return .INTERPRET_COMPILE_ERROR;
+                },
             }
         }
+    }
+
+    fn peek(self: *VM, distance: usize) Value {
+        return self.stack.items[self.stack.items.len - 1 - distance];
+    }
+
+    fn isFalsey(value: Value) bool {
+        return value.isNil() or (value.isBool() and !value.asBool());
     }
 
     fn readByte(self: *VM) u8 {
@@ -89,31 +128,53 @@ pub const VM = struct {
         return byte;
     }
 
-    fn readConstant(self: *VM) f64 {
+    fn readConstant(self: *VM) Value {
         const chunk = self.chunk orelse unreachable;
         return chunk.constants.values.items[self.readByte()];
     }
 
-    fn binaryOp(self: *VM, comptime op: fn (a: Value, b: Value) Value) !void {
-        const b = self.stack.pop();
-        const a = self.stack.pop();
+    fn binaryOp(
+        self: *VM,
+        comptime ReturnType: type,
+        comptime op: fn (a: f64, b: f64) ReturnType,
+    ) !InterpretResult {
+        if (!self.peek(0).isNumber() or !self.peek(1).isNumber()) {
+            self.runtimeError("Operands must be numbres", .{});
+            return .INTERPRET_RUNTIME_ERROR;
+        }
+        const b = self.stack.pop().asNumber();
+        const a = self.stack.pop().asNumber();
         const result = op(a, b);
-        try self.stack.append(result);
+        const value = switch (ReturnType) {
+            bool => Value.bool(result),
+            f64 => Value.number(result),
+            else => @compileError("Unsupported result type in binaryOp"),
+        };
+        try self.stack.append(value);
+        return .INTERPRET_OK;
     }
 };
 
-fn opAdd(a: Value, b: Value) Value {
+fn opAdd(a: f64, b: f64) f64 {
     return a + b;
 }
 
-fn opSubtract(a: Value, b: Value) Value {
+fn opSubtract(a: f64, b: f64) f64 {
     return a - b;
 }
 
-fn opMultiply(a: Value, b: Value) Value {
+fn opMultiply(a: f64, b: f64) f64 {
     return a * b;
 }
 
-fn opDivide(a: Value, b: Value) Value {
+fn opDivide(a: f64, b: f64) f64 {
     return a / b;
+}
+
+fn opGreater(a: f64, b: f64) bool {
+    return a > b;
+}
+
+fn opLess(a: f64, b: f64) bool {
+    return a < b;
 }

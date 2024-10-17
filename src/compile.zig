@@ -10,7 +10,7 @@ const Token = scan.Token;
 const TokenType = scan.TokenType;
 const Value = @import("value.zig").Value;
 const print = std.debug.print;
-var parser: Parser = Parser{ .current = undefined, .previous = undefined, .hadError = false, .panicMode = false };
+pub var parser: Parser = Parser{ .current = undefined, .previous = undefined, .hadError = false, .panicMode = false };
 pub var global_compiler: Compiler = Compiler{ .compilingChunk = undefined };
 
 const Precedence = enum(u8) {
@@ -52,31 +52,31 @@ fn getRule(tokenType: TokenType) ParseRule {
         .SEMICOLON => makeRule(null, null, .NONE),
         .SLASH => makeRule(null, Parser.binary, .FACTOR),
         .STAR => makeRule(null, Parser.binary, .FACTOR),
-        .BANG => makeRule(null, null, .NONE),
-        .BANG_EQUAL => makeRule(null, null, .NONE),
+        .BANG => makeRule(Parser.unary, null, .NONE),
+        .BANG_EQUAL => makeRule(null, Parser.binary, .EQUALITY),
         .EQUAL => makeRule(null, null, .NONE),
-        .EQUAL_EQUAL => makeRule(null, null, .NONE),
-        .GREATER => makeRule(null, null, .NONE),
-        .GREATER_EQUAL => makeRule(null, null, .NONE),
-        .LESS => makeRule(null, null, .NONE),
-        .LESS_EQUAL => makeRule(null, null, .NONE),
+        .EQUAL_EQUAL => makeRule(null, Parser.binary, .EQUALITY),
+        .GREATER => makeRule(null, Parser.binary, .COMPARISON),
+        .GREATER_EQUAL => makeRule(null, Parser.binary, .COMPARISON),
+        .LESS => makeRule(null, Parser.binary, .COMPARISON),
+        .LESS_EQUAL => makeRule(null, Parser.binary, .COMPARISON),
         .IDENTIFIER => makeRule(null, null, .NONE),
         .STRING => makeRule(null, null, .NONE),
         .NUMBER => makeRule(Parser.number, null, .NONE),
         .AND => makeRule(null, null, .NONE),
         .CLASS => makeRule(null, null, .NONE),
         .ELSE => makeRule(null, null, .NONE),
-        .FALSE => makeRule(null, null, .NONE),
+        .FALSE => makeRule(Parser.literal, null, .NONE),
         .FOR => makeRule(null, null, .NONE),
         .FUN => makeRule(null, null, .NONE),
         .IF => makeRule(null, null, .NONE),
-        .NIL => makeRule(null, null, .NONE),
+        .NIL => makeRule(Parser.literal, null, .NONE),
         .OR => makeRule(null, null, .NONE),
         .PRINT => makeRule(null, null, .NONE),
         .RETURN => makeRule(null, null, .NONE),
         .SUPER => makeRule(null, null, .NONE),
         .THIS => makeRule(null, null, .NONE),
-        .TRUE => makeRule(null, null, .NONE),
+        .TRUE => makeRule(Parser.literal, null, .NONE),
         .VAR => makeRule(null, null, .NONE),
         .WHILE => makeRule(null, null, .NONE),
         .ERROR => makeRule(null, null, .NONE),
@@ -149,7 +149,7 @@ const Parser = struct {
 
     fn number(self: *Parser) void {
         const value = std.fmt.parseFloat(f64, self.previous.start) catch 0.0;
-        global_compiler.emitConstant(value);
+        global_compiler.emitConstant(Value.number(value));
     }
 
     fn unary(self: *Parser) void {
@@ -160,19 +160,21 @@ const Parser = struct {
 
         // emit the operator instruction
         switch (operatorType) {
-            TokenType.MINUS => global_compiler.emitByte(@intFromEnum(OpCode.NEGATE)),
+            .BANG => global_compiler.emitByte(@intFromEnum(OpCode.NOT)),
+            .MINUS => global_compiler.emitByte(@intFromEnum(OpCode.NEGATE)),
             else => return,
         }
     }
 
     fn grouping(self: *Parser) void {
         self.expression();
-        self.consume(TokenType.RIGHT_PAREN, "Expect ')' after expression.");
+        self.consume(.RIGHT_PAREN, "Expect ')' after expression.");
     }
 
     fn parsePrecedence(self: *Parser, precedence: Precedence) void {
         self.advance();
         var rule = getRule(self.previous.tokenType);
+        // print("got rule: {any}, token type: {s}\n", .{ rule, @tagName(self.previous.tokenType) });
         if (rule.prefix) |prefixRule| {
             prefixRule(self);
         } else {
@@ -183,6 +185,7 @@ const Parser = struct {
         while (@intFromEnum(precedence) <= @intFromEnum(getRule(self.current.tokenType).precedence)) {
             self.advance();
             rule = getRule(self.previous.tokenType);
+            // print("got rule: {any}, token type: {s}\n", .{ rule, @tagName(self.previous.tokenType) });
             if (rule.infix) |infixRule| {
                 infixRule(self);
             }
@@ -195,11 +198,26 @@ const Parser = struct {
         self.parsePrecedence(rule.precedence.next());
 
         switch (operatorType) {
+            .BANG_EQUAL => global_compiler.emitBytes(@intFromEnum(OpCode.EQUAL), @intFromEnum(OpCode.NOT)),
+            .EQUAL_EQUAL => global_compiler.emitByte(@intFromEnum(OpCode.EQUAL)),
+            .GREATER => global_compiler.emitByte(@intFromEnum(OpCode.GREATER)),
+            .GREATER_EQUAL => global_compiler.emitBytes(@intFromEnum(OpCode.LESS), @intFromEnum(OpCode.NOT)),
+            .LESS => global_compiler.emitByte(@intFromEnum(OpCode.LESS)),
+            .LESS_EQUAL => global_compiler.emitBytes(@intFromEnum(OpCode.GREATER), @intFromEnum(OpCode.NOT)),
             .PLUS => global_compiler.emitByte(@intFromEnum(OpCode.ADD)),
             .MINUS => global_compiler.emitByte(@intFromEnum(OpCode.SUBTRACT)),
             .STAR => global_compiler.emitByte(@intFromEnum(OpCode.MULTIPLY)),
             .SLASH => global_compiler.emitByte(@intFromEnum(OpCode.DIVIDE)),
             else => return,
+        }
+    }
+
+    fn literal(self: *Parser) void {
+        switch (self.previous.tokenType) {
+            .FALSE => global_compiler.emitByte(@intFromEnum(OpCode.FALSE)),
+            .NIL => global_compiler.emitByte(@intFromEnum(OpCode.NIL)),
+            .TRUE => global_compiler.emitByte(@intFromEnum(OpCode.TRUE)),
+            else => unreachable,
         }
     }
 };
@@ -222,7 +240,9 @@ const Compiler = struct {
 
         if (DEBUG_PRINT_CODE) {
             if (!parser.hadError) {
-                debug.disassembleChunk(self.compilingChunk, "code");
+                debug.disassembleChunk(self.compilingChunk, "code") catch {
+                    parser.hadError = true;
+                };
             }
         }
     }

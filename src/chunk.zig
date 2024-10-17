@@ -1,7 +1,23 @@
 const std = @import("std");
 
 const value = @import("value.zig");
-pub const OpCode = enum(u8) { CONSTANT, ADD, SUBTRACT, MULTIPLY, DIVIDE, NEGATE, RETURN, _ };
+pub const OpCode = enum(u8) {
+    CONSTANT,
+    NIL,
+    TRUE,
+    FALSE,
+    EQUAL,
+    GREATER,
+    LESS,
+    ADD,
+    SUBTRACT,
+    MULTIPLY,
+    DIVIDE,
+    NEGATE,
+    NOT,
+    RETURN,
+    _,
+};
 
 pub const Chunk = struct {
     code: []u8,

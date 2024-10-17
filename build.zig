@@ -18,30 +18,12 @@ pub fn build(b: *std.Build) !void {
 
     const run_step = b.step("run", "Run");
     run_step.dependOn(&run_exe.step);
+    if (b.args) |args| {
+        run_exe.addArgs(args);
+    }
 
     const main_test_step = b.step("test", "Run all tests");
     try addTests(b, exe, main_test_step);
-
-    // New test for REPL mode
-    // const test_repl_exe = b.addRunArtifact(exe);
-    // test_repl_exe.addArg("--eval");
-
-    // // Set stdin data
-    // test_repl_exe.setStdIn(std.Build.Step.Run.StdIn{ .bytes = "1 + 1\n" });
-    // // Add expected stdout check
-    // test_repl_exe.expectStdOutEqual("2\n");
-    // main_test_step.dependOn(&test_repl_exe.step);
-
-    // // New test for file execution
-    // const test_file_exe = b.addRunArtifact(exe);
-    // const test_file_path = b.path("test.lox");
-    // test_file_exe.addFileArg(test_file_path);
-
-    // // Add expected stdout check
-    // test_file_exe.expectStdOutEqual("2\n");
-
-    // // Make test_file_step depend on test_file_exe
-    // main_test_step.dependOn(&test_file_exe.step);
 }
 
 fn addTests(b: *std.Build, exe: *std.Build.Step.Compile, test_step: *std.Build.Step) !void {
@@ -59,7 +41,7 @@ fn addTests(b: *std.Build, exe: *std.Build.Step.Compile, test_step: *std.Build.S
         .{ .input = "2 * 3\n", .expected_output = "6\n" },
         .{ .input = "5 - 2\n", .expected_output = "3\n" },
         // File test
-        .{ .input = "test.lox", .expected_output = "2\n", .is_file_test = true },
+        .{ .input = "test.lox", .expected_output = "true\n", .is_file_test = true },
     };
 
     // Iterate over the test cases and create test steps

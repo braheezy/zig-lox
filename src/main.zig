@@ -1,16 +1,17 @@
 const std = @import("std");
 
-// const config = @import("config");
+const config = @import("config");
 
 const ch = @import("chunk.zig");
+const cmp = @import("compile.zig");
 const InterpretResult = @import("vm.zig").InterpretResult;
 const VM = @import("vm.zig").VM;
 const print = std.debug.print;
 const OpenError = std.fs.Dir.OpenError;
 const OpCode = ch.OpCode;
 
-pub const DEBUG_TRACE_EXECUTION = false;
-pub const DEBUG_PRINT_CODE = false;
+pub const DEBUG_TRACE_EXECUTION = config.debug;
+pub const DEBUG_PRINT_CODE = config.debug;
 const oneMB = 1.049E+6;
 
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -86,6 +87,10 @@ pub fn repl(writer: std.fs.File.Writer, hide_output: bool) !void {
         @memcpy(sentinel_line[0..line.len], line);
 
         _ = try vm.interpret(sentinel_line);
+        if (cmp.parser.hadError) {
+            // reset error and let user continue to use repl
+            cmp.parser.hadError = false;
+        }
     }
 }
 

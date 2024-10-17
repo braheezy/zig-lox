@@ -176,7 +176,7 @@ pub const Scanner = struct {
                 if (self.current - self.start > 1) {
                     switch (self.source[self.start + 1]) {
                         'h' => return self.checkKeyword(2, 2, "is", .THIS),
-                        't' => return self.checkKeyword(2, 2, "ue", .TRUE),
+                        'r' => return self.checkKeyword(2, 2, "ue", .TRUE),
                         else => {},
                     }
                 }
