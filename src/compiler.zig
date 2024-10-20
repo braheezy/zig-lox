@@ -4,6 +4,7 @@ const Chunk = @import("chunk.zig").Chunk;
 const OpCode = @import("chunk.zig").OpCode;
 const debug = @import("debug.zig");
 const main = @import("main.zig");
+const obj = @import("object.zig");
 const scan = @import("scan.zig");
 const Value = @import("value.zig").Value;
 const DEBUG_PRINT_CODE = main.DEBUG_PRINT_CODE;
@@ -61,7 +62,7 @@ fn getRule(tokenType: TokenType) ParseRule {
         .LESS => makeRule(null, Parser.binary, .COMPARISON),
         .LESS_EQUAL => makeRule(null, Parser.binary, .COMPARISON),
         .IDENTIFIER => makeRule(null, null, .NONE),
-        .STRING => makeRule(null, null, .NONE),
+        .STRING => makeRule(Parser.string, null, .NONE),
         .NUMBER => makeRule(Parser.number, null, .NONE),
         .AND => makeRule(null, null, .NONE),
         .CLASS => makeRule(null, null, .NONE),
@@ -219,6 +220,28 @@ const Parser = struct {
             .TRUE => global_compiler.emitByte(@intFromEnum(OpCode.TRUE)),
             else => unreachable,
         }
+    }
+
+    fn string(self: *Parser) void {
+        const lexeme = self.previous.start;
+
+        // Ensure the string has at least two characters (the quotes)
+        if (lexeme.len < 2) {
+            self.err("String literal too short.");
+            return;
+        }
+
+        // Extract the string content without the surrounding quotes
+        const stringContent = lexeme[1 .. lexeme.len - 1];
+
+        // Create an ObjString by copying the string content
+        const objString = obj.copyString(stringContent) catch |e| {
+            std.debug.print("Failed to copy string: {any}", .{e});
+            std.process.exit(1);
+        };
+
+        // Emit the constant value
+        global_compiler.emitConstant(Value.object(&objString.obj));
     }
 };
 

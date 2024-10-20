@@ -3,7 +3,7 @@ const std = @import("std");
 const config = @import("config");
 
 const ch = @import("chunk.zig");
-const cmp = @import("compile.zig");
+const cmp = @import("compiler.zig");
 const InterpretResult = @import("vm.zig").InterpretResult;
 const VM = @import("vm.zig").VM;
 const print = std.debug.print;
@@ -17,7 +17,7 @@ const oneMB = 1.049E+6;
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 pub var allocator = gpa.allocator();
 
-var vm: VM = undefined;
+pub var vm: VM = undefined;
 
 pub fn main() !void {
     defer if (gpa.deinit() == .leak) {

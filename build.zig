@@ -40,8 +40,10 @@ fn addTests(b: *std.Build, exe: *std.Build.Step.Compile, test_step: *std.Build.S
         .{ .input = "1 + 1\n", .expected_output = "2\n" },
         .{ .input = "2 * 3\n", .expected_output = "6\n" },
         .{ .input = "5 - 2\n", .expected_output = "3\n" },
+        .{ .input = "!(5 - 4 > 3 * 2 == !nil)\n", .expected_output = "true\n" },
+
         // File test
-        .{ .input = "test.lox", .expected_output = "true\n", .is_file_test = true },
+        .{ .input = "test.lox", .expected_output = "zig-lox\n", .is_file_test = true },
     };
 
     // Iterate over the test cases and create test steps

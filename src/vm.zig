@@ -2,9 +2,10 @@ const std = @import("std");
 
 const Chunk = @import("chunk.zig").Chunk;
 const OpCode = @import("chunk.zig").OpCode;
-const cmp = @import("compile.zig");
+const cmp = @import("compiler.zig");
 const debug = @import("debug.zig");
 const DEBUG_TRACE_EXECUTION = @import("main.zig").DEBUG_TRACE_EXECUTION;
+const obj = @import("object.zig");
 const Value = @import("value.zig").Value;
 const printValue = @import("value.zig").printValue;
 const valuesEqual = @import("value.zig").valuesEqual;
@@ -18,15 +19,33 @@ pub const VM = struct {
     ip: ?[]u8,
     stack: std.ArrayList(Value),
     writer: std.fs.File.Writer,
+    objects: ?*obj.Obj,
 
     pub fn init(allocator: *std.mem.Allocator, writer: std.fs.File.Writer) VM {
         const stack = std.ArrayList(Value).init(allocator.*);
-        const v = VM{ .allocator = allocator, .chunk = null, .ip = null, .stack = stack, .writer = writer };
+        const v = VM{
+            .allocator = allocator,
+            .chunk = null,
+            .ip = null,
+            .stack = stack,
+            .writer = writer,
+            .objects = null,
+        };
         return v;
     }
 
     pub fn free(self: *VM) void {
         self.stack.deinit();
+        self.freeObjects();
+    }
+
+    fn freeObjects(self: *VM) void {
+        var current = self.objects;
+        while (current) |object| {
+            const nextObject = object.next;
+            obj.freeObject(object);
+            current = nextObject;
+        }
     }
 
     pub fn interpret(self: *VM, source: [:0]u8) !InterpretResult {
@@ -80,7 +99,18 @@ pub const VM = struct {
                 },
                 .GREATER => _ = try self.binaryOp(bool, opGreater),
                 .LESS => _ = try self.binaryOp(bool, opLess),
-                .ADD => _ = try self.binaryOp(f64, opAdd),
+                .ADD => {
+                    if (self.peek(0).isString() and self.peek(1).isString()) {
+                        try self.concatenate();
+                    } else if (self.peek(0).isNumber() and self.peek(1).isNumber()) {
+                        const b = self.stack.pop().asNumber();
+                        const a = self.stack.pop().asNumber();
+                        try self.stack.append(Value.number(a + b));
+                    } else {
+                        self.runtimeError("Operands must be two numbers or two strings", .{});
+                        return .INTERPRET_RUNTIME_ERROR;
+                    }
+                },
                 .SUBTRACT => _ = try self.binaryOp(f64, opSubtract),
                 .MULTIPLY => _ = try self.binaryOp(f64, opMultiply),
                 .DIVIDE => _ = try self.binaryOp(f64, opDivide),
@@ -119,6 +149,19 @@ pub const VM = struct {
 
     fn isFalsey(value: Value) bool {
         return value.isNil() or (value.isBool() and !value.asBool());
+    }
+
+    fn concatenate(self: *VM) !void {
+        const b = self.stack.pop().asString();
+        const a = self.stack.pop().asString();
+
+        const length = a.chars.len + b.chars.len;
+        var chars = try self.allocator.alloc(u8, length);
+        @memcpy(chars[0..a.chars.len], a.chars);
+        @memcpy(chars[a.chars.len..length], b.chars);
+
+        const result = try obj.takeString(chars);
+        try self.stack.append(Value.object(&result.obj));
     }
 
     fn readByte(self: *VM) u8 {
