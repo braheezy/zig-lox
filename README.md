@@ -11,7 +11,15 @@ You need Zig. The `.devcontainer` can be used to easily provide that.
 
 Helpful commands:
 
-    # Build an executable: zig-out/bin/zig-lox
-    zig build --summary all
-    # Run all tests
-    zig build test --summary all
+```bash
+# Build an executable: zig-out/bin/zig-lox
+zig build --summary all
+# Run all tests
+zig build test --summary all
+# Run a file
+zig-out/bin/zig-lox test.lox
+# Or run the repl
+zig-out/bin/zig-lox
+# Or eval an expression over stdin
+echo '1 + 1' | zig-out/bin/zig-lox --eval
+```

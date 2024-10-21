@@ -24,7 +24,6 @@ pub const Table = struct {
     }
 
     pub fn free(self: *Table) void {
-        if (self.entries != null) self.allocator.free(self.entries.?);
         self.count = 0;
         self.capacity = 0;
     }
@@ -48,17 +47,20 @@ pub const Table = struct {
             const new_capacity = memory.growCapacity(self.capacity);
             try self.adjustCapacity(new_capacity);
         }
-        const entry = findEntry(self.entries.?, self.capacity, key);
+        if (self.entries) |entries| {
+            const entry = findEntry(entries, self.capacity, key);
 
-        if (entry) |e| {
-            if (e.value.isNil()) self.count += 1;
+            if (entry) |e| {
+                if (e.value.isNil()) self.count += 1;
 
-            e.key = key;
-            e.value = value;
-            return true;
-        } else {
-            return false;
+                e.key = key;
+                e.value = value;
+                return true;
+            } else {
+                return false;
+            }
         }
+        return false;
     }
 
     pub fn delete(self: *Table, key: *ObjString) bool {
