@@ -72,4 +72,11 @@ fn addTests(b: *std.Build, exe: *std.Build.Step.Compile, test_step: *std.Build.S
             test_step.dependOn(&test_repl_exe.step);
         }
     }
+
+    // Unit tests in specific files
+    const unit_tests = b.addTest(.{
+        .root_source_file = b.path("src/table.zig"),
+    });
+    const run_unit_tests = b.addRunArtifact(unit_tests);
+    test_step.dependOn(&run_unit_tests.step);
 }

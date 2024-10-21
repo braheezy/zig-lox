@@ -1,5 +1,6 @@
 const std = @import("std");
 
+const memory = @import("memory.zig");
 const value = @import("value.zig");
 pub const OpCode = enum(u8) {
     CONSTANT,
@@ -22,7 +23,7 @@ pub const OpCode = enum(u8) {
 pub const Chunk = struct {
     code: []u8,
     len: usize,
-    capacity: u8 = 0,
+    capacity: usize = 0,
     constants: value.ValueArray,
     lines: []u32,
 
@@ -51,9 +52,9 @@ pub const Chunk = struct {
     pub fn write(self: *Chunk, allocator: *std.mem.Allocator, byte: u8, line: u32) void {
         if (self.capacity < self.len + 1) {
             const oldCapacity = self.capacity;
-            self.capacity = growCapacity(oldCapacity);
-            self.code = growArray(u8, allocator, self.code, self.capacity);
-            self.lines = growArray(u32, allocator, self.lines, self.capacity);
+            self.capacity = memory.growCapacity(oldCapacity);
+            self.code = memory.growArray(u8, allocator, self.code, self.capacity);
+            self.lines = memory.growArray(u32, allocator, self.lines, self.capacity);
         }
         self.code[self.len] = byte;
         self.lines[self.len] = line;
@@ -62,21 +63,5 @@ pub const Chunk = struct {
     pub fn addConstant(self: *Chunk, constant: value.Value) u32 {
         self.constants.write(constant);
         return @intCast(self.constants.values.items.len - 1);
-    }
-
-    fn growCapacity(capacity: u8) u8 {
-        return if (capacity < 8) 8 else capacity * 2;
-    }
-    fn growArray(
-        comptime T: type,
-        allocator: *std.mem.Allocator,
-        oldArray: []T,
-        newCount: usize,
-    ) []T {
-        const newArray = allocator.realloc(oldArray, newCount) catch {
-            std.debug.print("Failed to allocate memory", .{});
-            std.process.exit(1);
-        };
-        return newArray;
     }
 };

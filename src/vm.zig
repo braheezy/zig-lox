@@ -6,6 +6,7 @@ const cmp = @import("compiler.zig");
 const debug = @import("debug.zig");
 const DEBUG_TRACE_EXECUTION = @import("main.zig").DEBUG_TRACE_EXECUTION;
 const obj = @import("object.zig");
+const Table = @import("table.zig").Table;
 const Value = @import("value.zig").Value;
 const printValue = @import("value.zig").printValue;
 const valuesEqual = @import("value.zig").valuesEqual;
@@ -20,6 +21,7 @@ pub const VM = struct {
     stack: std.ArrayList(Value),
     writer: std.fs.File.Writer,
     objects: ?*obj.Obj,
+    strings: *Table,
 
     pub fn init(allocator: *std.mem.Allocator, writer: std.fs.File.Writer) VM {
         const stack = std.ArrayList(Value).init(allocator.*);
@@ -30,6 +32,7 @@ pub const VM = struct {
             .stack = stack,
             .writer = writer,
             .objects = null,
+            .strings = Table.init(allocator),
         };
         return v;
     }
@@ -37,6 +40,7 @@ pub const VM = struct {
     pub fn free(self: *VM) void {
         self.stack.deinit();
         self.freeObjects();
+        self.strings.free();
     }
 
     fn freeObjects(self: *VM) void {

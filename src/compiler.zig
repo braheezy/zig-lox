@@ -11,7 +11,12 @@ const DEBUG_PRINT_CODE = main.DEBUG_PRINT_CODE;
 const Token = scan.Token;
 const TokenType = scan.TokenType;
 const print = std.debug.print;
-pub var parser: Parser = Parser{ .current = undefined, .previous = undefined, .hadError = false, .panicMode = false };
+pub var parser: Parser = Parser{
+    .current = undefined,
+    .previous = undefined,
+    .hadError = false,
+    .panicMode = false,
+};
 pub var global_compiler: Compiler = Compiler{ .compilingChunk = undefined };
 
 const Precedence = enum(u8) {

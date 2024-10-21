@@ -125,10 +125,6 @@ pub fn valuesEqual(a: Value, b: Value) bool {
         .boolean => return a.asBool() == b.asBool(),
         .none => return true,
         .number => return a.asNumber() == b.asNumber(),
-        .object => {
-            const aString = a.asString();
-            const bString = b.asString();
-            return aString.chars.len == bString.chars.len and std.mem.eql(u8, aString.chars, bString.chars);
-        },
+        .object => return a.asObject() == b.asObject(),
     }
 }
