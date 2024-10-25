@@ -17,8 +17,14 @@ pub var parser: Parser = Parser{
     .hadError = false,
     .panicMode = false,
 };
-pub var global_compiler: Compiler = Compiler{ .compilingChunk = undefined };
+pub var global_compiler: Compiler = Compiler{
+    .compilingChunk = undefined,
+    .scopeDepth = 0,
+    .localCount = 0,
+    .locals = [_]Local{.{ .name = undefined, .depth = 0 }} ** UINT8_COUNT,
+};
 
+const UINT8_COUNT = std.math.maxInt(u8) + 1;
 const Precedence = enum(u8) {
     NONE,
     ASSIGNMENT, // =
@@ -41,6 +47,11 @@ const ParseRule = struct {
     prefix: ?*const ParseFn,
     infix: ?*const ParseFn,
     precedence: Precedence,
+};
+
+const Local = struct {
+    name: Token,
+    depth: ?u32,
 };
 
 const ParseFn = fn (*Parser, bool) void;
@@ -163,6 +174,14 @@ const Parser = struct {
         self.parsePrecedence(Precedence.ASSIGNMENT);
     }
 
+    fn block(self: *Parser) void {
+        while (!self.check(.RIGHT_BRACE) and !self.check(.EOF)) {
+            self.declaration();
+        }
+
+        self.consume(.RIGHT_BRACE, "Expect '}' after block.");
+    }
+
     fn varDeclaration(self: *Parser) void {
         const global = self.parseVariable("Expect variable name.");
 
@@ -174,7 +193,7 @@ const Parser = struct {
 
         self.consume(.SEMICOLON, "Expect ';' after variable declaration.");
 
-        defineVariable(global);
+        global_compiler.defineVariable(global);
     }
 
     fn expressionStatement(self: *Parser) void {
@@ -222,6 +241,10 @@ const Parser = struct {
     fn statement(self: *Parser) void {
         if (self.match(.PRINT)) {
             self.printStatement();
+        } else if (self.match(.LEFT_BRACE)) {
+            global_compiler.beginScope();
+            self.block();
+            global_compiler.endScope();
         } else {
             self.expressionStatement();
         }
@@ -289,13 +312,43 @@ const Parser = struct {
         return global_compiler.makeConstant(Value.object(&constant.obj));
     }
 
-    fn parseVariable(self: *Parser, errorMessage: []const u8) u8 {
-        self.consume(.IDENTIFIER, errorMessage);
-        return identifierConstant(&self.previous);
+    fn addLocal(self: *Parser, name: Token) void {
+        if (global_compiler.localCount.? == UINT8_COUNT) {
+            self.err("Too many local variable in function.");
+            return;
+        }
+        var local = global_compiler.locals[global_compiler.localCount.?];
+        global_compiler.localCount.? += 1;
+
+        local.name = name;
+        local.depth = null;
     }
 
-    fn defineVariable(global: u8) void {
-        global_compiler.emitBytes(@intFromEnum(OpCode.DEFINE_GLOBAL), global);
+    fn declareVariable(self: *Parser) void {
+        if (global_compiler.scopeDepth == 0) return;
+
+        const name = &self.previous;
+
+        if (global_compiler.localCount) |localCount| {
+            var i: usize = localCount - 1;
+            while (i >= 0) : (i -= 1) {
+                const local = global_compiler.locals[i];
+                if (local.depth) |depth| if (depth < global_compiler.scopeDepth.?) break;
+
+                if (identifiersEqual(name, &local.name)) self.err("Already a variable with this name in this scope.");
+            }
+        }
+
+        self.addLocal(name.*);
+    }
+
+    fn parseVariable(self: *Parser, errorMessage: []const u8) u8 {
+        self.consume(.IDENTIFIER, errorMessage);
+
+        self.declareVariable();
+        if (global_compiler.scopeDepth) |scopeDepth| if (scopeDepth > 0) return 0;
+
+        return identifierConstant(&self.previous);
     }
 
     fn binary(self: *Parser, canAssign: bool) void {
@@ -353,13 +406,21 @@ const Parser = struct {
     }
 
     fn namedVariable(self: *Parser, name: *Token, canAssign: bool) void {
-        const arg = identifierConstant(name);
+        var arg = global_compiler.resolveLocal(name);
+        var getOp = OpCode.GET_LOCAL;
+        var setOp = OpCode.SET_LOCAL;
+
+        if (arg == null) {
+            arg = identifierConstant(name);
+            getOp = OpCode.GET_GLOBAL;
+            setOp = OpCode.SET_GLOBAL;
+        }
 
         if (canAssign and self.match(.EQUAL)) {
             self.expression();
-            global_compiler.emitBytes(@intFromEnum(OpCode.SET_GLOBAL), arg);
+            global_compiler.emitBytes(@intFromEnum(setOp), arg.?);
         } else {
-            global_compiler.emitBytes(@intFromEnum(OpCode.GET_GLOBAL), arg);
+            global_compiler.emitBytes(@intFromEnum(getOp), arg.?);
         }
     }
 
@@ -370,6 +431,9 @@ const Parser = struct {
 
 const Compiler = struct {
     compilingChunk: *Chunk,
+    locals: [UINT8_COUNT]Local,
+    localCount: ?u8,
+    scopeDepth: ?u32,
 
     pub fn compile(self: *Compiler, source: [:0]u8, chunk: *Chunk) bool {
         scan.Scanner.init(source);
@@ -393,6 +457,58 @@ const Compiler = struct {
                     parser.hadError = true;
                 };
             }
+        }
+    }
+
+    fn resolveLocal(self: *Compiler, name: *Token) ?u8 {
+        var index = self.localCount;
+        if (self.localCount) |localCount| {
+            if (localCount > 0) {
+                index = localCount - 1;
+            }
+        }
+        if (index) |*i| {
+            while (i.* > 0) : (i.* -= 1) {
+                const local = &global_compiler.locals[i.*];
+                if (identifiersEqual(name, &local.name)) {
+                    return i.*;
+                }
+            }
+        }
+        return null;
+    }
+
+    fn markInitialized(self: *Compiler) void {
+        self.locals[self.localCount.? - 1].depth = self.scopeDepth;
+    }
+
+    fn defineVariable(self: *Compiler, global: u8) void {
+        if (self.scopeDepth) |scopeDepth| if (scopeDepth > 0) {
+            self.markInitialized();
+            return;
+        };
+
+        self.emitBytes(@intFromEnum(OpCode.DEFINE_GLOBAL), global);
+    }
+
+    fn beginScope(self: *Compiler) void {
+        if (self.scopeDepth) |_| {
+            self.scopeDepth.? += 1;
+        } else {
+            self.scopeDepth = 0;
+        }
+    }
+
+    fn endScope(self: *Compiler) void {
+        if (self.scopeDepth) |_| {
+            self.scopeDepth.? -= 1;
+        }
+
+        while (self.localCount.? > 0 and
+            self.locals[self.localCount.? - 1].depth.? > self.scopeDepth.?)
+        {
+            self.emitByte(@intFromEnum(OpCode.POP));
+            self.localCount.? -= 1;
         }
     }
 
@@ -423,3 +539,8 @@ const Compiler = struct {
         self.compilingChunk.write(&main.allocator, byte, parser.previous.line);
     }
 };
+
+fn identifiersEqual(a: *const Token, b: *const Token) bool {
+    if (a.start.len != b.start.len) return false;
+    return std.mem.eql(u8, a.start, b.start);
+}

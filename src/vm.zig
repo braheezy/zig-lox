@@ -173,6 +173,14 @@ pub const VM = struct {
                         return .INTERPRET_RUNTIME_ERROR;
                     }
                 },
+                .GET_LOCAL => {
+                    const slot = self.readByte();
+                    try self.stack.append(self.stack.items[slot]);
+                },
+                .SET_LOCAL => {
+                    const slot = self.readByte();
+                    self.stack.items[slot] = self.peek(0);
+                },
                 else => {
                     print("unknown opcode", .{});
                     return .INTERPRET_COMPILE_ERROR;

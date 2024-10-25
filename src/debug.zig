@@ -29,6 +29,8 @@ pub fn disassembleInstruction(chunk: *chk.Chunk, offset: usize) !usize {
         .DEFINE_GLOBAL => return try constantInstruction(@tagName(.DEFINE_GLOBAL), chunk, offset),
         .GET_GLOBAL => return try constantInstruction(@tagName(.GET_GLOBAL), chunk, offset),
         .SET_GLOBAL => return try constantInstruction(@tagName(.SET_GLOBAL), chunk, offset),
+        .SET_LOCAL => return try byteInstruction(@tagName(.SET_LOCAL), chunk, offset),
+        .SET_GLOBAL => return try byteInstruction(@tagName(.SET_GLOBAL), chunk, offset),
         else => {
             return simpleInstruction(@tagName(instruction), offset);
         },
@@ -46,5 +48,11 @@ fn constantInstruction(name: []const u8, chunk: *chk.Chunk, offset: usize) !usiz
     try value.printValue(chunk.constants.values.items[constant], std.io.getStdErr().writer());
     print("'\n", .{});
 
+    return offset + 2;
+}
+
+fn byteInstruction(name: []const u8, chunk: *chk.Chunk, offset: usize) !usize {
+    const slot = chunk.code[offset + 1];
+    print("{s<20} {d:>4}\n", .{ name, slot });
     return offset + 2;
 }
