@@ -13,28 +13,34 @@ pub const Table = struct {
     entries: ?[]Entry,
     allocator: *std.mem.Allocator,
 
-    pub fn init(allocator: *std.mem.Allocator) *Table {
-        var table = Table{
+    pub fn init(allocator: *std.mem.Allocator) !*Table {
+        const table = try allocator.create(Table);
+        table.* = Table{
             .count = 0,
             .capacity = 0,
             .entries = null,
             .allocator = allocator,
         };
-        return &table;
+        return table;
     }
 
     pub fn free(self: *Table) void {
-        self.count = 0;
-        self.capacity = 0;
+        if (self.entries) |entries| {
+            self.allocator.free(entries);
+            self.entries = null;
+        }
+        self.allocator.destroy(self);
     }
 
     pub fn get(self: *Table, key: *ObjString) ?*Value {
         if (self.count == 0) return null;
 
-        const entry = findEntry(self.entries.?, self.capacity, key);
-        if (entry) |e| {
-            if (e.key) |_| {
-                return &e.value;
+        if (self.entries) |entries| {
+            const entry = findEntry(entries, self.capacity, key);
+            if (entry) |e| {
+                if (e.key) |_| {
+                    return &e.value;
+                }
             }
         }
         return null;
@@ -43,6 +49,7 @@ pub const Table = struct {
     pub fn set(self: *Table, key: *ObjString, value: Value) !bool {
         const fCap: f64 = @floatFromInt(self.capacity);
         const limit: u32 = @intFromFloat(fCap * TABLE_MAX_LOAD);
+        var isNewKey = false;
         if (self.count + 1 > limit) {
             const new_capacity = memory.growCapacity(self.capacity);
             try self.adjustCapacity(new_capacity);
@@ -51,30 +58,38 @@ pub const Table = struct {
             const entry = findEntry(entries, self.capacity, key);
 
             if (entry) |e| {
-                if (e.value.isNil()) self.count += 1;
+                isNewKey = (e.key == null);
+                if (isNewKey and e.value.isNil()) {
+                    self.count += 1;
+                }
 
                 e.key = key;
                 e.value = value;
-                return true;
+                return isNewKey;
             } else {
-                return false;
+                return isNewKey;
             }
         }
-        return false;
+        return isNewKey;
     }
 
     pub fn delete(self: *Table, key: *ObjString) bool {
         if (self.count == 0) return false;
 
-        const entry = findEntry(self.entries, self.capacity, key);
-        if (entry.key) {
-            // place a tombstone
-            entry.key = null;
-            entry.value = Value.bool(true);
-            return true;
-        } else {
-            return false;
+        if (self.entries) |entries| {
+            const entry = findEntry(entries, self.capacity, key);
+            if (entry) |e| {
+                if (e.key) |_| {
+                    // place a tombstone
+                    e.key = null;
+                    e.value = Value.bool(true);
+                    return true;
+                } else {
+                    return false;
+                }
+            }
         }
+        return false;
     }
 
     pub fn setAll(from: *Table, to: *Table) void {
@@ -91,18 +106,22 @@ pub const Table = struct {
 
         var index = hash % self.capacity;
         while (true) {
-            const entry = &self.entries.?[index];
-            if (entry.key) |key| {
-                if (key.chars.len == chars.len and key.hash == hash and std.mem.eql(u8, key.chars, chars)) {
-                    // found it
-                    return key;
+            if (self.entries) |entries| {
+                const entry = &entries[index];
+                if (entry.key) |key| {
+                    if (key.chars.len == chars.len and key.hash == hash and std.mem.eql(u8, key.chars, chars)) {
+                        // found it
+                        return key;
+                    }
+                } else {
+                    // stop if we find an empty non-tombstone entry
+                    if (entry.value.isNil()) return null;
                 }
-            } else {
-                // stop if we find an empty non-tombstone entry
-                if (entry.value.isNil()) return null;
-            }
 
-            index = (index + 1) % self.capacity;
+                index = (index + 1) % self.capacity;
+            } else {
+                return null;
+            }
         }
     }
 
@@ -114,7 +133,11 @@ pub const Table = struct {
             if (entry.key == null) {
                 if (entry.value.isNil()) {
                     // empty entry
-                    return tombstone;
+                    if (tombstone != null) {
+                        return tombstone;
+                    } else {
+                        return entry;
+                    }
                 } else {
                     // found tombstone
                     if (tombstone == null) tombstone = entry;
@@ -147,7 +170,7 @@ pub const Table = struct {
             }
         }
 
-        self.allocator.free(self.entries.?);
+        if (self.entries) |ents| self.allocator.free(ents);
         self.entries = entries;
         self.capacity = capacity;
     }
@@ -160,7 +183,7 @@ const Entry = struct {
 
 test "Table initialization" {
     var allocator = std.testing.allocator;
-    const table = Table.init(&allocator);
+    const table = try Table.init(&allocator);
     defer table.free();
 
     try std.testing.expectEqual(@as(u32, 0), table.count);

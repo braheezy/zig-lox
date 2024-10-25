@@ -17,7 +17,7 @@ const oneMB = 1.049E+6;
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 pub var allocator = gpa.allocator();
 
-pub var vm: VM = undefined;
+pub var vm: *VM = undefined;
 
 pub fn main() !void {
     defer if (gpa.deinit() == .leak) {
@@ -25,7 +25,7 @@ pub fn main() !void {
     };
     const stdout = std.io.getStdOut();
     const writer = stdout.writer();
-    vm = VM.init(&allocator, writer);
+    vm = try VM.init(&allocator, writer);
     defer vm.free();
 
     // Read arguments

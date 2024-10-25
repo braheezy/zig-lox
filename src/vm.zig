@@ -9,6 +9,7 @@ const obj = @import("object.zig");
 const Table = @import("table.zig").Table;
 const Value = @import("value.zig").Value;
 const printValue = @import("value.zig").printValue;
+const toString = @import("value.zig").toString;
 const valuesEqual = @import("value.zig").valuesEqual;
 const print = std.debug.print;
 
@@ -22,17 +23,20 @@ pub const VM = struct {
     writer: std.fs.File.Writer,
     objects: ?*obj.Obj,
     strings: *Table,
+    globals: *Table,
 
-    pub fn init(allocator: *std.mem.Allocator, writer: std.fs.File.Writer) VM {
+    pub fn init(allocator: *std.mem.Allocator, writer: std.fs.File.Writer) !*VM {
         const stack = std.ArrayList(Value).init(allocator.*);
-        const v = VM{
+        const v = try allocator.create(VM);
+        v.* = VM{
             .allocator = allocator,
             .chunk = null,
             .ip = null,
             .stack = stack,
             .writer = writer,
             .objects = null,
-            .strings = Table.init(allocator),
+            .strings = try Table.init(allocator),
+            .globals = try Table.init(allocator),
         };
         return v;
     }
@@ -41,6 +45,8 @@ pub const VM = struct {
         self.stack.deinit();
         self.freeObjects();
         self.strings.free();
+        self.globals.free();
+        self.allocator.destroy(self);
     }
 
     fn freeObjects(self: *VM) void {
@@ -83,7 +89,7 @@ pub const VM = struct {
             if (DEBUG_TRACE_EXECUTION) {
                 print("        ", .{});
                 for (self.stack.items) |slot| {
-                    print("[ {any} ]", .{slot});
+                    print("[ {s} ]", .{try toString(slot, self.allocator)});
                 }
                 print("\n", .{});
 
@@ -127,9 +133,11 @@ pub const VM = struct {
                     const negated_value = -self.stack.pop().asNumber();
                     try self.stack.append(Value.number(negated_value));
                 },
-                .RETURN => {
+                .PRINT => {
                     try printValue(self.stack.pop(), self.writer);
-                    try self.writer.print("\n", .{});
+                    try self.writer.writeAll("\n");
+                },
+                .RETURN => {
                     return .INTERPRET_OK;
                 },
                 .CONSTANT => {
@@ -139,6 +147,32 @@ pub const VM = struct {
                 .NIL => try self.stack.append(Value.nil()),
                 .TRUE => try self.stack.append(Value.bool(true)),
                 .FALSE => try self.stack.append(Value.bool(false)),
+                .POP => _ = self.stack.pop(),
+                .DEFINE_GLOBAL => {
+                    const name = self.readString();
+
+                    _ = try self.globals.set(name, self.peek(0));
+                    _ = self.stack.pop();
+                },
+                .GET_GLOBAL => {
+                    const name = self.readString();
+                    if (self.globals.get(name)) |value| {
+                        try self.stack.append(value.*);
+                    } else {
+                        self.runtimeError("Undefined variable '{s}'.", .{name.chars});
+                        return .INTERPRET_RUNTIME_ERROR;
+                    }
+                },
+                .SET_GLOBAL => {
+                    const name = self.readString();
+                    const keyFound = try self.globals.set(name, self.peek(0));
+                    if (keyFound) {
+                        print("uh oh!\n", .{});
+                        _ = self.globals.delete(name);
+                        self.runtimeError("Undefined variable '{s}'.", .{name.chars});
+                        return .INTERPRET_RUNTIME_ERROR;
+                    }
+                },
                 else => {
                     print("unknown opcode", .{});
                     return .INTERPRET_COMPILE_ERROR;
@@ -178,6 +212,10 @@ pub const VM = struct {
     fn readConstant(self: *VM) Value {
         const chunk = self.chunk orelse unreachable;
         return chunk.constants.values.items[self.readByte()];
+    }
+
+    fn readString(self: *VM) *obj.ObjString {
+        return self.readConstant().asString();
     }
 
     fn binaryOp(

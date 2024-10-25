@@ -19,13 +19,16 @@ pub fn disassembleInstruction(chunk: *chk.Chunk, offset: usize) !usize {
     if (offset > 0 and chunk.lines[offset] == chunk.lines[offset - 1]) {
         print("   | ", .{});
     } else {
-        print("{d:.4} ", .{chunk.lines[offset]});
+        print("{d:>4} ", .{chunk.lines[offset]});
     }
 
     const instruction: OpCode = @enumFromInt(chunk.code[offset]);
 
     switch (instruction) {
         .CONSTANT => return try constantInstruction(@tagName(.CONSTANT), chunk, offset),
+        .DEFINE_GLOBAL => return try constantInstruction(@tagName(.DEFINE_GLOBAL), chunk, offset),
+        .GET_GLOBAL => return try constantInstruction(@tagName(.GET_GLOBAL), chunk, offset),
+        .SET_GLOBAL => return try constantInstruction(@tagName(.SET_GLOBAL), chunk, offset),
         else => {
             return simpleInstruction(@tagName(instruction), offset);
         },
@@ -33,13 +36,13 @@ pub fn disassembleInstruction(chunk: *chk.Chunk, offset: usize) !usize {
 }
 
 fn simpleInstruction(name: []const u8, offset: usize) usize {
-    print("{s}\n", .{name});
+    print("{s:<20}\n", .{name});
     return offset + 1;
 }
 
 fn constantInstruction(name: []const u8, chunk: *chk.Chunk, offset: usize) !usize {
     const constant = chunk.code[offset + 1];
-    print("{s:<16} {d:>4} '", .{ name, constant });
+    print("{s:<20} {d:>4} '", .{ name, constant });
     try value.printValue(chunk.constants.values.items[constant], std.io.getStdErr().writer());
     print("'\n", .{});
 

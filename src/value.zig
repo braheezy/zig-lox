@@ -119,6 +119,19 @@ pub fn printValue(value: Value, writer: std.fs.File.Writer) !void {
     }
 }
 
+pub fn toString(value: Value, allocator: *std.mem.Allocator) ![]const u8 {
+    return switch (value) {
+        .boolean => if (value.asBool()) "true" else "false",
+        .number => try std.fmt.allocPrint(allocator.*, "{d}", .{value.asNumber()}),
+        .object => {
+            return switch (value.objType()) {
+                .string => value.asCString(),
+            };
+        },
+        .none => "nil",
+    };
+}
+
 pub fn valuesEqual(a: Value, b: Value) bool {
     if (std.meta.activeTag(a) != std.meta.activeTag(b)) return false;
     switch (a) {

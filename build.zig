@@ -37,13 +37,22 @@ fn addTests(b: *std.Build, exe: *std.Build.Step.Compile, test_step: *std.Build.S
     // Define the test cases
     const test_cases = &[_]TestCase{
         // REPL tests
-        .{ .input = "1 + 1\n", .expected_output = "2\n" },
-        .{ .input = "2 * 3\n", .expected_output = "6\n" },
-        .{ .input = "5 - 2\n", .expected_output = "3\n" },
-        .{ .input = "!(5 - 4 > 3 * 2 == !nil)\n", .expected_output = "true\n" },
-
+        .{ .input = "print 1 + 1;\n", .expected_output = "2\n" },
+        .{ .input = "print 2 * 3;\n", .expected_output = "6\n" },
+        .{ .input = "print 5 - 2;\n", .expected_output = "3\n" },
+        .{ .input = "print !(5 - 4 > 3 * 2 == !nil);\n", .expected_output = "true\n" },
+        .{ .input = "print 1 + 2;\n", .expected_output = "3\n" },
+        .{
+            .input =
+            \\var breakfast = "beignets";
+            \\var beverage = "cafe au lait";
+            \\breakfast = "beignets with " + beverage;
+            \\print breakfast;
+            ,
+            .expected_output = "beignets with cafe au lait\n",
+        },
         // File test
-        .{ .input = "test.lox", .expected_output = "zig-lox\n", .is_file_test = true },
+        .{ .input = "test.lox", .expected_output = "beignets with cafe au lait\n", .is_file_test = true },
     };
 
     // Iterate over the test cases and create test steps
