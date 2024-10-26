@@ -22,6 +22,9 @@ pub const OpCode = enum(u8) {
     DIVIDE,
     NEGATE,
     PRINT,
+    JUMP,
+    JUMP_IF_FALSE,
+    LOOP,
     NOT,
     RETURN,
     _,
@@ -29,7 +32,7 @@ pub const OpCode = enum(u8) {
 
 pub const Chunk = struct {
     code: []u8,
-    len: usize,
+    len: u8,
     capacity: usize = 0,
     constants: value.ValueArray,
     lines: []u32,

@@ -35,15 +35,12 @@ pub const Table = struct {
     pub fn get(self: *Table, key: *ObjString) ?*Value {
         if (self.count == 0) return null;
 
-        if (self.entries) |entries| {
-            const entry = findEntry(entries, self.capacity, key);
-            if (entry) |e| {
-                if (e.key) |_| {
-                    return &e.value;
-                }
-            }
-        }
-        return null;
+        if (self.entries == null) return null;
+
+        const entry = findEntry(self.entries.?, self.capacity, key) orelse return null;
+        if (entry.key == null) return null;
+
+        return &entry.value;
     }
 
     pub fn set(self: *Table, key: *ObjString, value: Value) !bool {

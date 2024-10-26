@@ -51,7 +51,7 @@ const ParseRule = struct {
 
 const Local = struct {
     name: Token,
-    depth: ?u32,
+    depth: i32,
 };
 
 const ParseFn = fn (*Parser, bool) void;
@@ -80,7 +80,7 @@ fn getRule(tokenType: TokenType) ParseRule {
         .IDENTIFIER => makeRule(Parser.variable, null, .NONE),
         .STRING => makeRule(Parser.string, null, .NONE),
         .NUMBER => makeRule(Parser.number, null, .NONE),
-        .AND => makeRule(null, null, .NONE),
+        .AND => makeRule(null, Parser.@"and", .AND),
         .CLASS => makeRule(null, null, .NONE),
         .ELSE => makeRule(null, null, .NONE),
         .FALSE => makeRule(Parser.literal, null, .NONE),
@@ -88,7 +88,7 @@ fn getRule(tokenType: TokenType) ParseRule {
         .FUN => makeRule(null, null, .NONE),
         .IF => makeRule(null, null, .NONE),
         .NIL => makeRule(Parser.literal, null, .NONE),
-        .OR => makeRule(null, null, .NONE),
+        .OR => makeRule(null, Parser.@"or", .OR),
         .PRINT => makeRule(null, null, .NONE),
         .RETURN => makeRule(null, null, .NONE),
         .SUPER => makeRule(null, null, .NONE),
@@ -202,10 +202,86 @@ const Parser = struct {
         global_compiler.emitByte(@intFromEnum(OpCode.POP));
     }
 
+    fn ifStatement(self: *Parser) void {
+        self.consume(.LEFT_PAREN, "Expect '(' after 'if'.");
+        self.expression();
+        self.consume(.RIGHT_PAREN, "Expect ')' after condition");
+
+        const thenJump = global_compiler.emitJump(@intFromEnum(OpCode.JUMP_IF_FALSE));
+        global_compiler.emitByte(@intFromEnum(OpCode.POP));
+        self.statement();
+
+        const elseJump = global_compiler.emitJump(@intFromEnum(OpCode.JUMP));
+
+        global_compiler.patchJump(thenJump);
+        global_compiler.emitByte(@intFromEnum(OpCode.POP));
+
+        if (self.match(.ELSE)) self.statement();
+
+        global_compiler.patchJump(elseJump);
+    }
+
     fn printStatement(self: *Parser) void {
         self.expression();
         self.consume(.SEMICOLON, "Expect ';' after value.");
         global_compiler.emitByte(@intFromEnum(OpCode.PRINT));
+    }
+
+    fn forStatement(self: *Parser) void {
+        global_compiler.beginScope();
+        self.consume(.LEFT_PAREN, "Expect '(' after 'for'.");
+        if (self.match(.SEMICOLON)) {
+            // no initializer
+        } else if (self.match(.VAR)) {
+            self.varDeclaration();
+        } else {
+            self.expressionStatement();
+        }
+
+        var loopStart = global_compiler.compilingChunk.len;
+        var exitJump: ?u8 = null;
+        if (!self.match(.SEMICOLON)) {
+            self.expression();
+            self.consume(.SEMICOLON, "Expect ';' after loop condition.");
+            // jump out of the loop if condition is false
+            exitJump = global_compiler.emitJump(@intFromEnum(OpCode.JUMP_IF_FALSE));
+            global_compiler.emitByte(@intFromEnum(OpCode.POP)); // condition
+        }
+
+        if (!self.match(.RIGHT_PAREN)) {
+            const bodyJump = global_compiler.emitJump(@intFromEnum(OpCode.JUMP));
+            const incrementStart = global_compiler.compilingChunk.len;
+            self.expression();
+            global_compiler.emitByte(@intFromEnum(OpCode.POP));
+            self.consume(.RIGHT_PAREN, "Expect ')' after for clauses.");
+
+            global_compiler.emitLoop(loopStart);
+            loopStart = incrementStart;
+            global_compiler.patchJump(bodyJump);
+        }
+
+        self.statement();
+        global_compiler.emitLoop(loopStart);
+        if (exitJump) |_| {
+            global_compiler.patchJump(exitJump.?);
+            global_compiler.emitByte(@intFromEnum(OpCode.POP));
+        }
+        global_compiler.endScope();
+    }
+
+    fn whileStatement(self: *Parser) void {
+        const loopStart = global_compiler.compilingChunk.len;
+        self.consume(.LEFT_PAREN, "Expect '(' after 'while'.");
+        self.expression();
+        self.consume(.RIGHT_PAREN, "Expect ')' after condition.");
+
+        const exitJump = global_compiler.emitJump(@intFromEnum(OpCode.JUMP_IF_FALSE));
+        global_compiler.emitByte(@intFromEnum(OpCode.POP));
+        self.statement();
+        global_compiler.emitLoop(loopStart);
+
+        global_compiler.patchJump(exitJump);
+        global_compiler.emitByte(@intFromEnum(OpCode.POP));
     }
 
     fn declaration(self: *Parser) void {
@@ -241,10 +317,16 @@ const Parser = struct {
     fn statement(self: *Parser) void {
         if (self.match(.PRINT)) {
             self.printStatement();
+        } else if (self.match(.WHILE)) {
+            self.whileStatement();
+        } else if (self.match(.FOR)) {
+            self.forStatement();
         } else if (self.match(.LEFT_BRACE)) {
             global_compiler.beginScope();
             self.block();
             global_compiler.endScope();
+        } else if (self.match(.IF)) {
+            self.ifStatement();
         } else {
             self.expressionStatement();
         }
@@ -313,15 +395,15 @@ const Parser = struct {
     }
 
     fn addLocal(self: *Parser, name: Token) void {
-        if (global_compiler.localCount.? == UINT8_COUNT) {
+        if (global_compiler.localCount == UINT8_COUNT) {
             self.err("Too many local variable in function.");
             return;
         }
-        var local = global_compiler.locals[global_compiler.localCount.?];
-        global_compiler.localCount.? += 1;
+        var local = &global_compiler.locals[@intCast(global_compiler.localCount)];
+        global_compiler.localCount += 1;
 
         local.name = name;
-        local.depth = null;
+        local.depth = -1;
     }
 
     fn declareVariable(self: *Parser) void {
@@ -329,16 +411,13 @@ const Parser = struct {
 
         const name = &self.previous;
 
-        if (global_compiler.localCount) |localCount| {
-            var i: usize = localCount - 1;
-            while (i >= 0) : (i -= 1) {
-                const local = global_compiler.locals[i];
-                if (local.depth) |depth| if (depth < global_compiler.scopeDepth.?) break;
+        var i: i64 = global_compiler.localCount - 1;
+        while (i >= 0) : (i -= 1) {
+            const local = global_compiler.locals[@intCast(i)];
+            if (local.depth != -1 and local.depth < global_compiler.scopeDepth) break;
 
-                if (identifiersEqual(name, &local.name)) self.err("Already a variable with this name in this scope.");
-            }
+            if (identifiersEqual(name, &local.name)) self.err("Already a variable with this name in this scope.");
         }
-
         self.addLocal(name.*);
     }
 
@@ -346,9 +425,31 @@ const Parser = struct {
         self.consume(.IDENTIFIER, errorMessage);
 
         self.declareVariable();
-        if (global_compiler.scopeDepth) |scopeDepth| if (scopeDepth > 0) return 0;
+        if (global_compiler.scopeDepth > 0) return 0;
 
         return identifierConstant(&self.previous);
+    }
+
+    fn @"or"(self: *Parser, canAssign: bool) void {
+        _ = canAssign;
+        const elseJump = global_compiler.emitJump(@intFromEnum(OpCode.JUMP_IF_FALSE));
+        const endJump = global_compiler.emitJump(@intFromEnum(OpCode.JUMP));
+
+        global_compiler.patchJump(elseJump);
+        global_compiler.emitByte(@intFromEnum(OpCode.POP));
+
+        self.parsePrecedence(.OR);
+        global_compiler.patchJump(endJump);
+    }
+
+    fn @"and"(self: *Parser, canAssign: bool) void {
+        _ = canAssign;
+        const endJump = global_compiler.emitJump(@intFromEnum(OpCode.JUMP_IF_FALSE));
+
+        global_compiler.emitByte(@intFromEnum(OpCode.POP));
+        self.parsePrecedence(.AND);
+
+        global_compiler.patchJump(endJump);
     }
 
     fn binary(self: *Parser, canAssign: bool) void {
@@ -406,21 +507,27 @@ const Parser = struct {
     }
 
     fn namedVariable(self: *Parser, name: *Token, canAssign: bool) void {
-        var arg = global_compiler.resolveLocal(name);
-        var getOp = OpCode.GET_LOCAL;
-        var setOp = OpCode.SET_LOCAL;
+        const arg = global_compiler.resolveLocal(name);
+        var getOp: OpCode = undefined;
+        var setOp: OpCode = undefined;
+        var byteArg: u8 = 0;
 
-        if (arg == null) {
-            arg = identifierConstant(name);
-            getOp = OpCode.GET_GLOBAL;
-            setOp = OpCode.SET_GLOBAL;
+        if (arg != -1) {
+            getOp = .GET_LOCAL;
+            setOp = .SET_LOCAL;
+
+            byteArg = @intCast(arg);
+        } else {
+            byteArg = identifierConstant(name);
+            getOp = .GET_GLOBAL;
+            setOp = .SET_GLOBAL;
         }
 
         if (canAssign and self.match(.EQUAL)) {
             self.expression();
-            global_compiler.emitBytes(@intFromEnum(setOp), arg.?);
+            global_compiler.emitBytes(@intFromEnum(setOp), byteArg);
         } else {
-            global_compiler.emitBytes(@intFromEnum(getOp), arg.?);
+            global_compiler.emitBytes(@intFromEnum(getOp), byteArg);
         }
     }
 
@@ -432,8 +539,8 @@ const Parser = struct {
 const Compiler = struct {
     compilingChunk: *Chunk,
     locals: [UINT8_COUNT]Local,
-    localCount: ?u8,
-    scopeDepth: ?u32,
+    localCount: i8,
+    scopeDepth: i32,
 
     pub fn compile(self: *Compiler, source: [:0]u8, chunk: *Chunk) bool {
         scan.Scanner.init(source);
@@ -460,55 +567,43 @@ const Compiler = struct {
         }
     }
 
-    fn resolveLocal(self: *Compiler, name: *Token) ?u8 {
-        var index = self.localCount;
-        if (self.localCount) |localCount| {
-            if (localCount > 0) {
-                index = localCount - 1;
-            }
+    fn resolveLocal(self: *Compiler, name: *Token) i64 {
+        var i: i64 = self.localCount - 1;
+        while (i >= 0) : (i -= 1) {
+            const local = self.locals[@intCast(i)];
+            if (identifiersEqual(name, &local.name)) return i;
         }
-        if (index) |*i| {
-            while (i.* > 0) : (i.* -= 1) {
-                const local = &global_compiler.locals[i.*];
-                if (identifiersEqual(name, &local.name)) {
-                    return i.*;
-                }
-            }
-        }
-        return null;
+        return -1;
     }
 
     fn markInitialized(self: *Compiler) void {
-        self.locals[self.localCount.? - 1].depth = self.scopeDepth;
+        if (self.localCount > 0) {
+            const count = self.localCount - 1;
+            self.locals[@intCast(count)].depth = self.scopeDepth;
+        }
     }
 
     fn defineVariable(self: *Compiler, global: u8) void {
-        if (self.scopeDepth) |scopeDepth| if (scopeDepth > 0) {
+        if (self.scopeDepth > 0) {
             self.markInitialized();
             return;
-        };
+        }
 
         self.emitBytes(@intFromEnum(OpCode.DEFINE_GLOBAL), global);
     }
 
     fn beginScope(self: *Compiler) void {
-        if (self.scopeDepth) |_| {
-            self.scopeDepth.? += 1;
-        } else {
-            self.scopeDepth = 0;
-        }
+        self.scopeDepth += 1;
     }
 
     fn endScope(self: *Compiler) void {
-        if (self.scopeDepth) |_| {
-            self.scopeDepth.? -= 1;
-        }
+        self.scopeDepth -= 1;
 
-        while (self.localCount.? > 0 and
-            self.locals[self.localCount.? - 1].depth.? > self.scopeDepth.?)
+        while (self.localCount > 0 and
+            self.locals[@intCast(self.localCount - 1)].depth > self.scopeDepth)
         {
             self.emitByte(@intFromEnum(OpCode.POP));
-            self.localCount.? -= 1;
+            self.localCount -= 1;
         }
     }
 
@@ -528,6 +623,35 @@ const Compiler = struct {
 
     fn emitConstant(self: *Compiler, value: Value) void {
         self.emitBytes(@intFromEnum(OpCode.CONSTANT), self.makeConstant(value));
+    }
+
+    fn patchJump(self: *Compiler, offset: u8) void {
+        // -2 to adjust for the bytecode for the jump offset itself
+        const jump: u16 = self.compilingChunk.len - offset - 2;
+
+        if (jump > std.math.maxInt(u16)) {
+            parser.err("Too much code to jump over");
+        }
+
+        self.compilingChunk.code[offset] = @truncate((jump >> 8) & 0xff);
+        self.compilingChunk.code[offset + 1] = @truncate(jump & 0xff);
+    }
+
+    fn emitJump(self: *Compiler, instruction: u8) u8 {
+        self.emitByte(instruction);
+        self.emitByte(0xff);
+        self.emitByte(0xff);
+        return self.compilingChunk.len - 2;
+    }
+
+    fn emitLoop(self: *Compiler, loopStart: usize) void {
+        self.emitByte(@intFromEnum(OpCode.LOOP));
+
+        const offset = self.compilingChunk.len - loopStart + 2;
+        if (offset > std.math.maxInt(u16)) parser.err("Loop body too large");
+
+        self.emitByte(@truncate((offset >> 8) & 0xff));
+        self.emitByte(@truncate(offset & 0xff));
     }
 
     fn emitBytes(self: *Compiler, byte1: u8, byte2: u8) void {

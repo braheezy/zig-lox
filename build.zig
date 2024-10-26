@@ -42,6 +42,9 @@ fn addTests(b: *std.Build, exe: *std.Build.Step.Compile, test_step: *std.Build.S
         .{ .input = "print 5 - 2;\n", .expected_output = "3\n" },
         .{ .input = "print !(5 - 4 > 3 * 2 == !nil);\n", .expected_output = "true\n" },
         .{ .input = "print 1 + 2;\n", .expected_output = "3\n" },
+        .{ .input = "if (true or false) print \"pass\";\n", .expected_output = "pass\n" },
+        .{ .input = "if (true and false) print \"pass\";\n", .expected_output = "" },
+        .{ .input = "if (true and true) print \"pass\";\n", .expected_output = "pass\n" },
         .{
             .input =
             \\var breakfast = "beignets";
@@ -51,8 +54,23 @@ fn addTests(b: *std.Build, exe: *std.Build.Step.Compile, test_step: *std.Build.S
             ,
             .expected_output = "beignets with cafe au lait\n",
         },
+        .{
+            .input =
+            \\var a = 3;
+            \\while (a > 0) { print a; a = a - 1; }
+            ,
+            .expected_output = "3\n2\n1\n",
+        },
+        .{
+            .input =
+            \\var a = 3;
+            \\if (a > 0) { print "success"; }
+            ,
+            .expected_output = "success\n",
+        },
+        .{ .input = "for (var i = 0; i < 3; i = i + 1) print i;\n", .expected_output = "0\n1\n2\n" },
         // File test
-        .{ .input = "test.lox", .expected_output = "beignets with cafe au lait\n", .is_file_test = true },
+        .{ .input = "test.lox", .expected_output = "3\n2\n1\n", .is_file_test = true },
     };
 
     // Iterate over the test cases and create test steps

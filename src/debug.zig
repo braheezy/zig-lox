@@ -30,7 +30,10 @@ pub fn disassembleInstruction(chunk: *chk.Chunk, offset: usize) !usize {
         .GET_GLOBAL => return try constantInstruction(@tagName(.GET_GLOBAL), chunk, offset),
         .SET_GLOBAL => return try constantInstruction(@tagName(.SET_GLOBAL), chunk, offset),
         .SET_LOCAL => return try byteInstruction(@tagName(.SET_LOCAL), chunk, offset),
-        .SET_GLOBAL => return try byteInstruction(@tagName(.SET_GLOBAL), chunk, offset),
+        .GET_LOCAL => return try byteInstruction(@tagName(.GET_LOCAL), chunk, offset),
+        .JUMP => return try jumpInstruction(@tagName(.JUMP), 1, chunk, offset),
+        .JUMP_IF_FALSE => return try jumpInstruction(@tagName(.JUMP_IF_FALSE), 1, chunk, offset),
+        .LOOP => return try jumpInstruction(@tagName(.JUMP_IF_FALSE), -1, chunk, offset),
         else => {
             return simpleInstruction(@tagName(instruction), offset);
         },
@@ -55,4 +58,11 @@ fn byteInstruction(name: []const u8, chunk: *chk.Chunk, offset: usize) !usize {
     const slot = chunk.code[offset + 1];
     print("{s<20} {d:>4}\n", .{ name, slot });
     return offset + 2;
+}
+
+fn jumpInstruction(name: []const u8, sign: isize, chunk: *chk.Chunk, offset: usize) !usize {
+    var jump: usize = @as(u16, chunk.code[offset + 1]) << 8;
+    jump |= chunk.code[offset + 2];
+    print("{s<20} {d:>4} -> {d}\n", .{ name, offset, @as(i128, offset) + 3 + sign * @as(i128, jump) });
+    return offset + 3;
 }

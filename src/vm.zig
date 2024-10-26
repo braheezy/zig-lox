@@ -18,7 +18,7 @@ pub const InterpretResult = enum(u8) { INTERPRET_OK, INTERPRET_COMPILE_ERROR, IN
 pub const VM = struct {
     allocator: *std.mem.Allocator,
     chunk: ?*Chunk,
-    ip: ?[]u8,
+    ip: usize,
     stack: std.ArrayList(Value),
     writer: std.fs.File.Writer,
     objects: ?*obj.Obj,
@@ -31,7 +31,7 @@ pub const VM = struct {
         v.* = VM{
             .allocator = allocator,
             .chunk = null,
-            .ip = null,
+            .ip = 0,
             .stack = stack,
             .writer = writer,
             .objects = null,
@@ -66,7 +66,7 @@ pub const VM = struct {
         }
 
         self.chunk = &chunk;
-        self.ip = self.chunk.?.code;
+        self.ip = 0;
 
         return try self.run();
     }
@@ -78,7 +78,7 @@ pub const VM = struct {
     pub fn runtimeError(self: *VM, comptime format: []const u8, args: anytype) void {
         std.debug.print(format, args);
 
-        const instruction = self.chunk.?.code.len - self.ip.?.len - 1;
+        const instruction = self.ip - 1;
         const line = self.chunk.?.lines[instruction];
         std.debug.print("\n[line {d}] in script\n", .{line});
         self.resetStack();
@@ -89,13 +89,14 @@ pub const VM = struct {
             if (DEBUG_TRACE_EXECUTION) {
                 print("        ", .{});
                 for (self.stack.items) |slot| {
-                    print("[ {s} ]", .{try toString(slot, self.allocator)});
+                    const msg = try toString(slot, self.allocator);
+                    print("[ {s} ]", .{msg});
+                    if (slot.isNumber()) self.allocator.free(msg);
                 }
                 print("\n", .{});
 
                 const code_slice = self.chunk orelse unreachable;
-                const ip_slice = self.ip orelse unreachable;
-                const offset = code_slice.code.len - ip_slice.len;
+                const offset = self.ip;
 
                 _ = try debug.disassembleInstruction(code_slice, offset);
             }
@@ -181,8 +182,20 @@ pub const VM = struct {
                     const slot = self.readByte();
                     self.stack.items[slot] = self.peek(0);
                 },
+                .JUMP_IF_FALSE => {
+                    const offset = self.readShort();
+                    if (isFalsey(self.peek(0))) self.ip += offset;
+                },
+                .JUMP => {
+                    const offset = self.readShort();
+                    self.ip += offset;
+                },
+                .LOOP => {
+                    const offset = self.readShort();
+                    self.ip -= offset;
+                },
                 else => {
-                    print("unknown opcode", .{});
+                    print("unknown opcode: {d}", .{instruction});
                     return .INTERPRET_COMPILE_ERROR;
                 },
             }
@@ -211,9 +224,8 @@ pub const VM = struct {
     }
 
     fn readByte(self: *VM) u8 {
-        const ip_slice = self.ip orelse unreachable;
-        const byte = ip_slice[0];
-        self.ip = ip_slice[1..];
+        const byte = self.chunk.?.code[self.ip];
+        self.ip += 1;
         return byte;
     }
 
@@ -224,6 +236,13 @@ pub const VM = struct {
 
     fn readString(self: *VM) *obj.ObjString {
         return self.readConstant().asString();
+    }
+
+    fn readShort(self: *VM) u16 {
+        const high = self.chunk.?.code[self.ip];
+        const low = self.chunk.?.code[self.ip + 1];
+        self.ip += 2;
+        return (@as(u16, high) << 8) | @as(u16, low);
     }
 
     fn binaryOp(
