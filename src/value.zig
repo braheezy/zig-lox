@@ -45,6 +45,14 @@ pub const Value = union(enum) {
         return self.isObjType(.string);
     }
 
+    pub fn isFunction(self: Value) bool {
+        return self.isObjType(.function);
+    }
+
+    pub fn isNative(self: Value) bool {
+        return self.isObjType(.native);
+    }
+
     pub fn isObjType(self: Value, targetObjType: obj.ObjType) bool {
         return self.isObject() and self.asObject().objType == targetObjType;
     }
@@ -70,10 +78,33 @@ pub const Value = union(enum) {
         };
     }
 
-    pub fn asString(self: Value) *obj.ObjString {
+    pub fn asType(comptime T: type, self: Value) *T {
         const objPtr = self.asObject();
         return @alignCast(@fieldParentPtr("obj", objPtr));
     }
+
+    pub fn asFunction(self: Value) *obj.ObjFunction {
+        return asType(obj.ObjFunction, self);
+    }
+
+    pub fn asNative(self: Value) obj.NativeFn {
+        const result = asType(obj.ObjNative, self);
+        return result.function;
+    }
+
+    pub fn asString(self: Value) *obj.ObjString {
+        return asType(obj.ObjString, self);
+    }
+
+    // pub fn asFunction(self: Value) *obj.ObjFunction {
+    //     const objPtr = self.asObject();
+    //     return @alignCast(@fieldParentPtr("obj", objPtr));
+    // }
+
+    // pub fn asString(self: Value) *obj.ObjString {
+    //     const objPtr = self.asObject();
+    //     return @alignCast(@fieldParentPtr("obj", objPtr));
+    // }
 
     pub fn asCString(self: Value) []const u8 {
         const objString = self.asString();
@@ -88,9 +119,9 @@ pub const Value = union(enum) {
 pub const ValueArray = struct {
     values: std.ArrayList(Value),
 
-    pub fn init(allocator: *std.mem.Allocator) ValueArray {
+    pub fn init(allocator: std.mem.Allocator) ValueArray {
         const array = ValueArray{
-            .values = std.ArrayList(Value).init(allocator.*),
+            .values = std.ArrayList(Value).init(allocator),
         };
 
         return array;
@@ -113,6 +144,17 @@ pub fn printValue(value: Value, writer: std.fs.File.Writer) !void {
         .object => {
             switch (value.objType()) {
                 .string => try writer.print("{s}", .{value.asCString()}),
+                .function => {
+                    const func = value.asFunction();
+                    if (func.name) |name| {
+                        try writer.print("<fn {s}>", .{name.chars});
+                    } else {
+                        try writer.print("<script>", .{});
+                    }
+                },
+                .native => {
+                    try writer.print("<native fn>", .{});
+                },
             }
         },
         .none => try writer.print("nil", .{}),
@@ -126,6 +168,8 @@ pub fn toString(value: Value, allocator: *std.mem.Allocator) ![]const u8 {
         .object => {
             return switch (value.objType()) {
                 .string => value.asCString(),
+                .function => if (value.asFunction().name) |name| name.chars else "",
+                .native => "native func",
             };
         },
         .none => "nil",

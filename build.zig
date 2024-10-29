@@ -68,9 +68,16 @@ fn addTests(b: *std.Build, exe: *std.Build.Step.Compile, test_step: *std.Build.S
             ,
             .expected_output = "success\n",
         },
+        .{
+            .input =
+            \\fun fib(n) { if (n < 2) return n; return fib(n - 2) + fib(n - 1); }
+            \\print fib(10);
+            ,
+            .expected_output = "55\n",
+        },
         .{ .input = "for (var i = 0; i < 3; i = i + 1) print i;\n", .expected_output = "0\n1\n2\n" },
         // File test
-        .{ .input = "test.lox", .expected_output = "3\n2\n1\n", .is_file_test = true },
+        .{ .input = "test.lox", .expected_output = "55\n", .is_file_test = true },
     };
 
     // Iterate over the test cases and create test steps

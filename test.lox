@@ -1,3 +1,6 @@
-for (var a = 3; a > 0; a = a - 1) {
-    print a;
+fun fib(n) {
+  if (n < 2) return n;
+  return fib(n - 2) + fib(n - 1);
 }
+
+print fib(10);

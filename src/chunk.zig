@@ -25,6 +25,7 @@ pub const OpCode = enum(u8) {
     JUMP,
     JUMP_IF_FALSE,
     LOOP,
+    CALL,
     NOT,
     RETURN,
     _,
@@ -42,7 +43,7 @@ pub const Chunk = struct {
             .code = try allocator.alloc(u8, 8),
             .len = 0,
             .capacity = 0,
-            .constants = value.ValueArray.init(allocator),
+            .constants = value.ValueArray.init(allocator.*),
             .lines = try allocator.alloc(u32, 8),
         };
         return chunk;

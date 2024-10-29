@@ -29,11 +29,12 @@ pub fn disassembleInstruction(chunk: *chk.Chunk, offset: usize) !usize {
         .DEFINE_GLOBAL => return try constantInstruction(@tagName(.DEFINE_GLOBAL), chunk, offset),
         .GET_GLOBAL => return try constantInstruction(@tagName(.GET_GLOBAL), chunk, offset),
         .SET_GLOBAL => return try constantInstruction(@tagName(.SET_GLOBAL), chunk, offset),
-        .SET_LOCAL => return try byteInstruction(@tagName(.SET_LOCAL), chunk, offset),
-        .GET_LOCAL => return try byteInstruction(@tagName(.GET_LOCAL), chunk, offset),
-        .JUMP => return try jumpInstruction(@tagName(.JUMP), 1, chunk, offset),
-        .JUMP_IF_FALSE => return try jumpInstruction(@tagName(.JUMP_IF_FALSE), 1, chunk, offset),
-        .LOOP => return try jumpInstruction(@tagName(.JUMP_IF_FALSE), -1, chunk, offset),
+        .SET_LOCAL => return byteInstruction(@tagName(.SET_LOCAL), chunk, offset),
+        .GET_LOCAL => return byteInstruction(@tagName(.GET_LOCAL), chunk, offset),
+        .CALL => return byteInstruction(@tagName(.CALL), chunk, offset),
+        .JUMP => return jumpInstruction(@tagName(.JUMP), 1, chunk, offset),
+        .JUMP_IF_FALSE => return jumpInstruction(@tagName(.JUMP_IF_FALSE), 1, chunk, offset),
+        .LOOP => return jumpInstruction(@tagName(.JUMP_IF_FALSE), -1, chunk, offset),
         else => {
             return simpleInstruction(@tagName(instruction), offset);
         },
@@ -54,13 +55,13 @@ fn constantInstruction(name: []const u8, chunk: *chk.Chunk, offset: usize) !usiz
     return offset + 2;
 }
 
-fn byteInstruction(name: []const u8, chunk: *chk.Chunk, offset: usize) !usize {
+fn byteInstruction(name: []const u8, chunk: *chk.Chunk, offset: usize) usize {
     const slot = chunk.code[offset + 1];
     print("{s<20} {d:>4}\n", .{ name, slot });
     return offset + 2;
 }
 
-fn jumpInstruction(name: []const u8, sign: isize, chunk: *chk.Chunk, offset: usize) !usize {
+fn jumpInstruction(name: []const u8, sign: isize, chunk: *chk.Chunk, offset: usize) usize {
     var jump: usize = @as(u16, chunk.code[offset + 1]) << 8;
     jump |= chunk.code[offset + 2];
     print("{s<20} {d:>4} -> {d}\n", .{ name, offset, @as(i128, offset) + 3 + sign * @as(i128, jump) });
