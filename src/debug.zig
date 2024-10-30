@@ -31,10 +31,36 @@ pub fn disassembleInstruction(chunk: *chk.Chunk, offset: usize) !usize {
         .SET_GLOBAL => return try constantInstruction(@tagName(.SET_GLOBAL), chunk, offset),
         .SET_LOCAL => return byteInstruction(@tagName(.SET_LOCAL), chunk, offset),
         .GET_LOCAL => return byteInstruction(@tagName(.GET_LOCAL), chunk, offset),
+        .GET_UPVALUE => return byteInstruction(@tagName(.GET_UPVALUE), chunk, offset),
+        .SET_UPVALUE => return byteInstruction(@tagName(.SET_UPVALUE), chunk, offset),
         .CALL => return byteInstruction(@tagName(.CALL), chunk, offset),
         .JUMP => return jumpInstruction(@tagName(.JUMP), 1, chunk, offset),
         .JUMP_IF_FALSE => return jumpInstruction(@tagName(.JUMP_IF_FALSE), 1, chunk, offset),
         .LOOP => return jumpInstruction(@tagName(.JUMP_IF_FALSE), -1, chunk, offset),
+        .CLOSURE => {
+            var newOffset = offset + 1;
+
+            const constant = chunk.code[newOffset];
+            newOffset += 1;
+            print("{s:<20} {d:>4} ", .{ "CLOSURE", constant });
+            try value.printValue(chunk.constants.values.items[constant], std.io.getStdErr().writer());
+            print("\n", .{});
+
+            const function = chunk.constants.values.items[constant].asFunction();
+            for (0..function.upvalueCount) |_| {
+                const isLocal = chunk.code[newOffset];
+                newOffset += 1;
+                const index = chunk.code[newOffset];
+                newOffset += 1;
+                print("{d:>4}      |                     {s} {d}\n", .{
+                    newOffset - 2,
+                    if (isLocal > 0) "local" else "upvalue",
+                    index,
+                });
+            }
+
+            return newOffset;
+        },
         else => {
             return simpleInstruction(@tagName(instruction), offset);
         },

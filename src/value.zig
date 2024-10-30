@@ -53,6 +53,10 @@ pub const Value = union(enum) {
         return self.isObjType(.native);
     }
 
+    pub fn isClosure(self: Value) bool {
+        return self.isObjType(.closure);
+    }
+
     pub fn isObjType(self: Value, targetObjType: obj.ObjType) bool {
         return self.isObject() and self.asObject().objType == targetObjType;
     }
@@ -92,19 +96,13 @@ pub const Value = union(enum) {
         return result.function;
     }
 
+    pub fn asClosure(self: Value) *obj.ObjClosure {
+        return asType(obj.ObjClosure, self);
+    }
+
     pub fn asString(self: Value) *obj.ObjString {
         return asType(obj.ObjString, self);
     }
-
-    // pub fn asFunction(self: Value) *obj.ObjFunction {
-    //     const objPtr = self.asObject();
-    //     return @alignCast(@fieldParentPtr("obj", objPtr));
-    // }
-
-    // pub fn asString(self: Value) *obj.ObjString {
-    //     const objPtr = self.asObject();
-    //     return @alignCast(@fieldParentPtr("obj", objPtr));
-    // }
 
     pub fn asCString(self: Value) []const u8 {
         const objString = self.asString();
@@ -146,15 +144,16 @@ pub fn printValue(value: Value, writer: std.fs.File.Writer) !void {
                 .string => try writer.print("{s}", .{value.asCString()}),
                 .function => {
                     const func = value.asFunction();
+                    try func.print(writer);
                     if (func.name) |name| {
                         try writer.print("<fn {s}>", .{name.chars});
                     } else {
                         try writer.print("<script>", .{});
                     }
                 },
-                .native => {
-                    try writer.print("<native fn>", .{});
-                },
+                .native => try writer.print("<native fn>", .{}),
+                .closure => try value.asClosure().function.print(writer),
+                .upvalue => try writer.print("upvalue", .{}),
             }
         },
         .none => try writer.print("nil", .{}),
@@ -170,6 +169,8 @@ pub fn toString(value: Value, allocator: *std.mem.Allocator) ![]const u8 {
                 .string => value.asCString(),
                 .function => if (value.asFunction().name) |name| name.chars else "",
                 .native => "native func",
+                .closure => if (value.asClosure().function.name) |name| name.chars else "",
+                .upvalue => "upvalue",
             };
         },
         .none => "nil",

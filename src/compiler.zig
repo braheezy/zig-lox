@@ -47,6 +47,12 @@ const ParseRule = struct {
 const Local = struct {
     name: Token,
     depth: i32,
+    isCaptured: bool,
+};
+
+const Upvalue = struct {
+    index: u8,
+    isLocal: bool,
 };
 
 const FunctionType = enum(u8) {
@@ -415,6 +421,7 @@ const Parser = struct {
     }
 
     fn function(self: *Parser, functionType: FunctionType) std.mem.Allocator.Error!void {
+        // print("[function] current_compiler.?.upvalues[0].isLocal: {any}\n", .{current_compiler.?.upvalues[0].isLocal});
         current_compiler = try Compiler.init(functionType);
         current_compiler.?.beginScope();
 
@@ -435,8 +442,23 @@ const Parser = struct {
         self.consume(.LEFT_BRACE, "Expect '{' before function body.");
         try self.block();
 
+        // const func = current_compiler.?.function;
+        //? The C code didn't have to do this.
+        const upvalues = current_compiler.?.upvalues;
+
         const func = current_compiler.?.endCompiler();
-        current_compiler.?.emitBytes(@intFromEnum(OpCode.CONSTANT), current_compiler.?.makeConstant(Value.object(&func.obj)));
+        // print("[function] func.upvalueCount: {d}\n", .{func.upvalueCount});
+
+        current_compiler.?.emitBytes(@intFromEnum(OpCode.CLOSURE), current_compiler.?.makeConstant(Value.object(&func.obj)));
+
+        for (0..func.upvalueCount) |i| {
+            // print("[function] upvalues[i].isLocal: {any}\n", .{upvalues[i].isLocal});
+            const isLocal: u8 = if (upvalues[i].isLocal) 1 else 0;
+            const index = upvalues[i].index;
+            // print("[function] emitting isLocal: {d} and index: {d}\n", .{ isLocal, index });
+            current_compiler.?.emitByte(isLocal);
+            current_compiler.?.emitByte(index);
+        }
     }
 
     fn parsePrecedence(self: *Parser, precedence: Precedence) void {
@@ -475,15 +497,16 @@ const Parser = struct {
     }
 
     fn addLocal(self: *Parser, name: Token) void {
-        if (current_compiler.?.localCount == UINT8_COUNT) {
+        if (current_compiler.?.localCount >= UINT8_COUNT) {
             self.err("Too many local variable in function.");
             return;
         }
-        var local = &current_compiler.?.locals[@intCast(current_compiler.?.localCount)];
+        var local = &current_compiler.?.locals[current_compiler.?.localCount];
         current_compiler.?.localCount += 1;
 
         local.name = name;
         local.depth = -1;
+        local.isCaptured = false;
     }
 
     fn declareVariable(self: *Parser) void {
@@ -491,9 +514,10 @@ const Parser = struct {
 
         const name = &self.previous;
 
-        var i: i64 = current_compiler.?.localCount - 1;
-        while (i >= 0) : (i -= 1) {
-            const local = current_compiler.?.locals[@intCast(i)];
+        var i = current_compiler.?.localCount;
+        while (i > 0) : (i -= 1) {
+            const index = i - 1;
+            const local = current_compiler.?.locals[index];
             if (local.depth != -1 and local.depth < current_compiler.?.scopeDepth) break;
 
             if (identifiersEqual(name, &local.name)) self.err("Already a variable with this name in this scope.");
@@ -587,20 +611,29 @@ const Parser = struct {
     }
 
     fn namedVariable(self: *Parser, name: *Token, canAssign: bool) void {
-        const arg = current_compiler.?.resolveLocal(name);
+        var arg = current_compiler.?.resolveLocal(name);
         var getOp: OpCode = undefined;
         var setOp: OpCode = undefined;
         var byteArg: u8 = 0;
 
-        if (arg != -1) {
+        if (arg) |localIndex| {
             getOp = .GET_LOCAL;
             setOp = .SET_LOCAL;
 
-            byteArg = @intCast(arg);
+            byteArg = localIndex;
         } else {
-            byteArg = identifierConstant(name);
-            getOp = .GET_GLOBAL;
-            setOp = .SET_GLOBAL;
+            arg = current_compiler.?.resolveUpvalue(name);
+            if (arg) |upvalueIndex| {
+                // print("[namedVariable] upvalueIndex: {d} for name: {s}\n", .{ upvalueIndex, name.start });
+                getOp = .GET_UPVALUE;
+                setOp = .SET_UPVALUE;
+                byteArg = upvalueIndex;
+            } else {
+                // print("[namedVariable] got null upvalue for name: {s}\n", .{name.start});
+                byteArg = identifierConstant(name);
+                getOp = .GET_GLOBAL;
+                setOp = .SET_GLOBAL;
+            }
         }
 
         if (canAssign and self.match(.EQUAL)) {
@@ -619,7 +652,8 @@ const Parser = struct {
 pub const Compiler = struct {
     enclosing: ?*Compiler,
     locals: [UINT8_COUNT]Local,
-    localCount: i8,
+    localCount: u8,
+    upvalues: [UINT8_COUNT]Upvalue,
     scopeDepth: i32,
     function: *obj.ObjFunction,
     funcType: FunctionType,
@@ -633,6 +667,11 @@ pub const Compiler = struct {
             .locals = [_]Local{.{
                 .name = undefined,
                 .depth = 0,
+                .isCaptured = false,
+            }} ** UINT8_COUNT,
+            .upvalues = [_]Upvalue{.{
+                .index = 0,
+                .isLocal = false,
             }} ** UINT8_COUNT,
             .function = try obj.newFunction(main.vm, &main.allocator),
             .funcType = funcType,
@@ -666,6 +705,7 @@ pub const Compiler = struct {
         self.emitReturn();
 
         const function = self.function;
+        // print("[endCompiler] function.upvalueCount: {d}\n", .{function.upvalueCount});
 
         if (DEBUG_PRINT_CODE) {
             if (!parser.hadError) {
@@ -691,13 +731,53 @@ pub const Compiler = struct {
         return &self.function.chunk;
     }
 
-    fn resolveLocal(self: *Compiler, name: *Token) i64 {
-        var i: i64 = self.localCount - 1;
-        while (i >= 0) : (i -= 1) {
-            const local = self.locals[@intCast(i)];
-            if (identifiersEqual(name, &local.name)) return i;
+    fn resolveLocal(self: *Compiler, name: *Token) ?u8 {
+        var i = self.localCount;
+        while (i > 0) : (i -= 1) {
+            const index = i - 1;
+            const local = self.locals[index];
+            if (identifiersEqual(name, &local.name)) return index;
         }
-        return -1;
+        return null;
+    }
+
+    fn addUpvalue(self: *Compiler, index: u8, isLocal: bool) ?u8 {
+        const upvalueCount = self.function.upvalueCount;
+
+        for (0..upvalueCount) |i| {
+            const upvalue = &self.upvalues[i];
+            if (upvalue.index == index and upvalue.isLocal == isLocal) return @intCast(i);
+        }
+
+        if (upvalueCount == UINT8_COUNT) {
+            parser.err("Too many closure variables in function.");
+            return 0;
+        }
+
+        // print("[addUpvalue] self.upvalues.len: {d}\n", .{self.upvalues.len});
+        // print("[addUpvalue] upvalueCount: {d}\n", .{upvalueCount});
+        // print("[addUpvalue] isLocal: {any}\n", .{isLocal});
+        self.upvalues[upvalueCount] = Upvalue{
+            .isLocal = isLocal,
+            .index = index,
+        };
+        // print("[addUpvalue] self.upvalues[upvalueCount].isLocal: {any}\n", .{self.upvalues[upvalueCount].isLocal});
+        self.function.upvalueCount += 1;
+        // print("[addUpvalue] self.function.upvalueCount; {d}\n", .{self.function.upvalueCount});
+        return self.function.upvalueCount - 1;
+    }
+
+    fn resolveUpvalue(self: *Compiler, name: *Token) ?u8 {
+        if (self.enclosing) |enclosing| {
+            if (enclosing.resolveLocal(name)) |localIndex| {
+                // print("[resolveUpvalue] got localIndex\n", .{});
+                enclosing.locals[localIndex].isCaptured = true;
+                return self.addUpvalue(localIndex, true);
+            } else if (enclosing.resolveUpvalue(name)) |upvalueIndex| {
+                // print("[resolveUpvalue] got upvalueIndex\n", .{});
+                return self.addUpvalue(upvalueIndex, false);
+            } else return null;
+        } else return null;
     }
 
     fn markInitialized(self: *Compiler) void {
@@ -705,7 +785,7 @@ pub const Compiler = struct {
 
         if (self.localCount > 0) {
             const count = self.localCount - 1;
-            self.locals[@intCast(count)].depth = self.scopeDepth;
+            self.locals[count].depth = self.scopeDepth;
         }
     }
 
@@ -728,9 +808,13 @@ pub const Compiler = struct {
         self.scopeDepth -= 1;
 
         while (self.localCount > 0 and
-            self.locals[@intCast(self.localCount - 1)].depth > self.scopeDepth)
+            self.locals[self.localCount - 1].depth > self.scopeDepth)
         {
-            self.emitByte(@intFromEnum(OpCode.POP));
+            if (self.locals[self.localCount - 1].isCaptured) {
+                self.emitByte(@intFromEnum(OpCode.CLOSE_UPVALUE));
+            } else {
+                self.emitByte(@intFromEnum(OpCode.POP));
+            }
             self.localCount -= 1;
         }
     }
