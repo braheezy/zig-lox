@@ -43,10 +43,10 @@ pub fn disassembleInstruction(chunk: *chk.Chunk, offset: usize) !usize {
             const constant = chunk.code[newOffset];
             newOffset += 1;
             print("{s:<20} {d:>4} ", .{ "CLOSURE", constant });
-            try value.printValue(chunk.constants.values.items[constant], std.io.getStdErr().writer());
+            try value.printValue(chunk.constants.values[constant], std.io.getStdErr().writer());
             print("\n", .{});
 
-            const function = chunk.constants.values.items[constant].asFunction();
+            const function = chunk.constants.values[constant].asFunction();
             for (0..function.upvalueCount) |_| {
                 const isLocal = chunk.code[newOffset];
                 newOffset += 1;
@@ -75,7 +75,7 @@ fn simpleInstruction(name: []const u8, offset: usize) usize {
 fn constantInstruction(name: []const u8, chunk: *chk.Chunk, offset: usize) !usize {
     const constant = chunk.code[offset + 1];
     print("{s:<20} {d:>4} '", .{ name, constant });
-    try value.printValue(chunk.constants.values.items[constant], std.io.getStdErr().writer());
+    try value.printValue(chunk.constants.values[constant], std.io.getStdErr().writer());
     print("'\n", .{});
 
     return offset + 2;

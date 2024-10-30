@@ -4,6 +4,7 @@ const OpCode = @import("chunk.zig").OpCode;
 const cmp = @import("compiler.zig");
 const debug = @import("debug.zig");
 const DEBUG_TRACE_EXECUTION = @import("main.zig").DEBUG_TRACE_EXECUTION;
+const memory = @import("memory.zig");
 const obj = @import("object.zig");
 const Table = @import("table.zig").Table;
 const Value = @import("value.zig").Value;
@@ -25,7 +26,7 @@ pub const CallFrame = struct {
 };
 
 pub const VM = struct {
-    allocator: *std.mem.Allocator,
+    allocator: *memory.VMAllocator,
     frames: [FRAMES_MAX]CallFrame,
     frame_count: u8,
     stack: [STACK_MAX]Value,
@@ -44,9 +45,11 @@ pub const VM = struct {
             .slots = undefined,
             .slot_index = 0,
         }} ** FRAMES_MAX;
-        const v = try allocator.create(VM);
+        var vm_allocator = memory.VMAllocator.init(allocator);
+
+        const v = try vm_allocator.create(VM);
         v.* = VM{
-            .allocator = allocator,
+            .allocator = &vm_allocator,
             .stack = stack,
             .stack_top = 0,
             .writer = writer,
@@ -85,7 +88,7 @@ pub const VM = struct {
     }
 
     pub fn interpret(self: *VM, source: [:0]u8) !InterpretResult {
-        cmp.current_compiler = try cmp.Compiler.init(.Script);
+        cmp.current_compiler = try cmp.Compiler.init(self, .Script);
         const function = try cmp.current_compiler.?.compile(source);
         if (function) |_| {
             self.push(Value.object(&function.?.obj));
@@ -148,7 +151,7 @@ pub const VM = struct {
             if (DEBUG_TRACE_EXECUTION) {
                 print("    ST: ", .{});
                 for (self.stack, 0..) |slot, i| {
-                    const msg = try toString(slot, self.allocator);
+                    const msg = try toString(slot, self.allocator.allocator);
                     print("[ {s} ]", .{msg});
                     if (slot.isNumber()) self.allocator.free(msg);
 
@@ -418,7 +421,8 @@ pub const VM = struct {
     fn readConstant(self: *VM) Value {
         const constantIndex = readByte(self);
         const frame = self.getFrame();
-        return frame.closure.function.chunk.constants.values.items[constantIndex];
+        // print("[readConstant] frame.closure.function.chunk.constants.values: {any}\n", .{frame.closure.function.chunk.constants.values});
+        return frame.closure.function.chunk.constants.values[constantIndex];
     }
 
     fn readShort(self: *VM) u16 {

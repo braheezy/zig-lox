@@ -132,9 +132,9 @@ pub fn allocateString(vm: *VM, chars: []const u8, hash: u64) !*ObjString {
     return string;
 }
 
-pub fn newFunction(vm: *VM, allocator: *std.mem.Allocator) std.mem.Allocator.Error!*ObjFunction {
+pub fn newFunction(vm: *VM) std.mem.Allocator.Error!*ObjFunction {
     var func: *ObjFunction = try allocateObject(vm, ObjFunction, .function);
-    func.chunk = try Chunk.init(allocator);
+    func.chunk = try Chunk.init(vm.allocator);
     return func;
 }
 

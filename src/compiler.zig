@@ -4,9 +4,11 @@ const Chunk = @import("chunk.zig").Chunk;
 const OpCode = @import("chunk.zig").OpCode;
 const debug = @import("debug.zig");
 const main = @import("main.zig");
+const memory = @import("memory.zig");
 const obj = @import("object.zig");
 const scan = @import("scan.zig");
 const Value = @import("value.zig").Value;
+const VM = @import("vm.zig").VM;
 const DEBUG_PRINT_CODE = main.DEBUG_PRINT_CODE;
 const Token = scan.Token;
 const TokenType = scan.TokenType;
@@ -368,6 +370,7 @@ const Parser = struct {
     }
 
     fn number(self: *Parser, canAssign: bool) void {
+        // print("[parser.number]\n", .{});
         _ = canAssign;
         const value = std.fmt.parseFloat(f64, self.previous.start) catch 0.0;
         current_compiler.?.emitConstant(Value.number(value));
@@ -422,7 +425,7 @@ const Parser = struct {
 
     fn function(self: *Parser, functionType: FunctionType) std.mem.Allocator.Error!void {
         // print("[function] current_compiler.?.upvalues[0].isLocal: {any}\n", .{current_compiler.?.upvalues[0].isLocal});
-        current_compiler = try Compiler.init(functionType);
+        current_compiler = try Compiler.init(main.vm, functionType);
         current_compiler.?.beginScope();
 
         self.consume(.LEFT_PAREN, "Expect '(' after function name.");
@@ -657,9 +660,10 @@ pub const Compiler = struct {
     scopeDepth: i32,
     function: *obj.ObjFunction,
     funcType: FunctionType,
+    vm_allocator: *memory.VMAllocator,
 
-    pub fn init(funcType: FunctionType) !*Compiler {
-        const compiler = try main.allocator.create(Compiler);
+    pub fn init(vm: *VM, funcType: FunctionType) !*Compiler {
+        const compiler = try vm.allocator.create(Compiler);
         compiler.* = Compiler{
             .enclosing = current_compiler,
             .scopeDepth = 0,
@@ -673,12 +677,13 @@ pub const Compiler = struct {
                 .index = 0,
                 .isLocal = false,
             }} ** UINT8_COUNT,
-            .function = try obj.newFunction(main.vm, &main.allocator),
+            .function = try obj.newFunction(vm),
             .funcType = funcType,
+            .vm_allocator = vm.allocator,
         };
 
         if (funcType != .Script) {
-            compiler.function.name = try obj.copyString(main.vm, parser.previous.start);
+            compiler.function.name = try obj.copyString(vm, parser.previous.start);
         }
         // claim slot 0 for vm usage
         const local = &compiler.locals[0];
@@ -723,7 +728,7 @@ pub const Compiler = struct {
             }
         }
         current_compiler = self.enclosing;
-        main.allocator.destroy(self);
+        self.vm_allocator.destroy(self);
         return function;
     }
 
@@ -825,11 +830,13 @@ pub const Compiler = struct {
     }
 
     fn makeConstant(self: *Compiler, value: Value) u8 {
+        // print("[makeConstant 1] made: {any}\n", .{self.function.chunk.constants});
         const constant = self.currentChunk().addConstant(value);
         if (constant > std.math.maxInt(u8)) {
             parser.err("Too many constants in one chunk.");
             return 0;
         }
+        // print("[makeConstant 2] made: {any}\n", .{self.function.chunk.constants});
 
         return @truncate(constant);
     }
@@ -873,7 +880,7 @@ pub const Compiler = struct {
     }
 
     pub fn emitByte(self: *Compiler, byte: u8) void {
-        self.currentChunk().write(&main.allocator, byte, parser.previous.line);
+        self.currentChunk().write(self.vm_allocator, byte, parser.previous.line);
     }
 };
 

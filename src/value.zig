@@ -1,5 +1,6 @@
 const std = @import("std");
 
+const memory = @import("memory.zig");
 const obj = @import("object.zig");
 pub const Value = union(enum) {
     none,
@@ -13,6 +14,7 @@ pub const Value = union(enum) {
     }
 
     pub fn number(value: f64) Value {
+        // std.debug.print("[value.number]\n", .{});
         return Value{ .number = value };
     }
 
@@ -71,14 +73,14 @@ pub const Value = union(enum) {
     pub fn asObject(self: Value) *obj.Obj {
         return switch (self) {
             .object => |o| o,
-            else => @panic("Value is not an object"),
+            else => std.debug.panic("Value is not an object, it's: {any}", .{self}),
         };
     }
 
     pub fn asNumber(self: Value) f64 {
         return switch (self) {
             .number => |n| n,
-            else => @panic("Value is not a number"),
+            else => std.debug.panic("Value is not a number, it's: {any}", .{self}),
         };
     }
 
@@ -115,23 +117,40 @@ pub const Value = union(enum) {
 };
 
 pub const ValueArray = struct {
-    values: std.ArrayList(Value),
+    values: []Value,
+    len: usize,
+    capacity: usize,
+    vm_allocator: *memory.VMAllocator,
 
-    pub fn init(allocator: std.mem.Allocator) ValueArray {
-        const array = ValueArray{
-            .values = std.ArrayList(Value).init(allocator),
+    pub fn init(vm_allocator: *memory.VMAllocator) !ValueArray {
+        return ValueArray{
+            .values = &[_]Value{},
+            .len = 0,
+            .capacity = 0,
+            .vm_allocator = vm_allocator,
         };
-
-        return array;
     }
     pub fn write(self: *ValueArray, value: Value) void {
-        self.values.append(value) catch {
-            std.debug.print("Failed to allocate memory", .{});
-            std.process.exit(1);
-        };
+        // std.debug.print("[value.write] writing value: {any}\n", .{value});
+        if (self.capacity < self.len + 1) {
+            const old_capacity = self.capacity;
+            self.capacity = memory.growCapacity(old_capacity);
+            self.values = self.vm_allocator.reallocate(
+                Value,
+                self.values,
+                self.capacity,
+            );
+        }
+        self.values[self.len] = value;
+        self.len += 1;
     }
     pub fn free(self: *ValueArray) void {
-        self.values.deinit();
+        if (self.capacity == 0) return;
+        self.vm_allocator.free(self.values);
+        self.values = &[_]Value{};
+        self.len = 0;
+        self.capacity = 0;
+        // _ = self;
     }
 };
 
