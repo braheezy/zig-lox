@@ -59,8 +59,8 @@ pub const Value = union(enum) {
         return self.isObjType(.closure);
     }
 
-    pub fn isObjType(self: Value, targetObjType: obj.ObjType) bool {
-        return self.isObject() and self.asObject().objType == targetObjType;
+    pub fn isObjType(self: Value, target_obj_type: obj.ObjType) bool {
+        return self.isObject() and self.asObject().obj_type == target_obj_type;
     }
 
     // Accessor methods
@@ -85,8 +85,8 @@ pub const Value = union(enum) {
     }
 
     pub fn asType(comptime T: type, self: Value) *T {
-        const objPtr = self.asObject();
-        return @alignCast(@fieldParentPtr("obj", objPtr));
+        const obj_ptr = self.asObject();
+        return @alignCast(@fieldParentPtr("obj", obj_ptr));
     }
 
     pub fn asFunction(self: Value) *obj.ObjFunction {
@@ -107,12 +107,12 @@ pub const Value = union(enum) {
     }
 
     pub fn asCString(self: Value) []const u8 {
-        const objString = self.asString();
-        return objString.chars;
+        const obj_string = self.asString();
+        return obj_string.chars;
     }
 
     pub fn objType(self: Value) obj.ObjType {
-        return self.asObject().objType;
+        return self.asObject().obj_type;
     }
 };
 

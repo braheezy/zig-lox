@@ -12,7 +12,7 @@ pub const ObjType = enum(u8) {
 };
 
 pub const Obj = struct {
-    objType: ObjType,
+    obj_type: ObjType,
     next: ?*Obj,
 };
 
@@ -26,7 +26,7 @@ pub const ObjClosure = struct {
     obj: Obj,
     function: *ObjFunction,
     upvalues: []?*ObjUpvalue,
-    upvalueCount: u8,
+    upvalue_count: u8,
 };
 
 pub const ObjUpvalue = struct {
@@ -39,7 +39,7 @@ pub const ObjUpvalue = struct {
 pub const ObjFunction = struct {
     obj: Obj,
     arity: u8,
-    upvalueCount: u8,
+    upvalue_count: u8,
     chunk: Chunk,
     name: ?*ObjString,
 
@@ -52,7 +52,7 @@ pub const ObjFunction = struct {
     }
 };
 
-pub const NativeFn = *const fn (argCount: u8, args: []Value) Value;
+pub const NativeFn = *const fn (arg_count: u8, args: []Value) Value;
 
 pub const ObjNative = struct {
     obj: Obj,
@@ -60,13 +60,13 @@ pub const ObjNative = struct {
 };
 
 // Allocates an object of a given type.
-pub fn allocateObject(vm: *VM, comptime T: type, objType: ObjType) std.mem.Allocator.Error!*T {
+pub fn allocateObject(vm: *VM, comptime T: type, obj_type: ObjType) std.mem.Allocator.Error!*T {
     const obj = try vm.allocator.create(T);
     switch (T) {
         ObjString => {
             obj.* = T{
                 .obj = Obj{
-                    .objType = objType,
+                    .obj_type = obj_type,
                     .next = vm.objects,
                 },
                 .hash = 0,
@@ -76,19 +76,19 @@ pub fn allocateObject(vm: *VM, comptime T: type, objType: ObjType) std.mem.Alloc
         ObjFunction => {
             obj.* = T{
                 .obj = Obj{
-                    .objType = objType,
+                    .obj_type = obj_type,
                     .next = vm.objects,
                 },
                 .arity = 0,
                 .name = null,
                 .chunk = undefined,
-                .upvalueCount = 0,
+                .upvalue_count = 0,
             };
         },
         ObjNative => {
             obj.* = T{
                 .obj = Obj{
-                    .objType = objType,
+                    .obj_type = obj_type,
                     .next = vm.objects,
                 },
                 .function = undefined,
@@ -97,18 +97,18 @@ pub fn allocateObject(vm: *VM, comptime T: type, objType: ObjType) std.mem.Alloc
         ObjClosure => {
             obj.* = T{
                 .obj = Obj{
-                    .objType = objType,
+                    .obj_type = obj_type,
                     .next = vm.objects,
                 },
                 .function = undefined,
                 .upvalues = undefined,
-                .upvalueCount = 0,
+                .upvalue_count = 0,
             };
         },
         ObjUpvalue => {
             obj.* = T{
                 .obj = Obj{
-                    .objType = objType,
+                    .obj_type = obj_type,
                     .next = vm.objects,
                 },
                 .location = undefined,
@@ -148,12 +148,12 @@ pub fn newClosure(vm: *VM, func: *ObjFunction) !*ObjClosure {
     var closure: *ObjClosure = try allocateObject(vm, ObjClosure, .closure);
     closure.function = func;
 
-    // std.debug.print("[newClosure] func.upvalueCount: {d}\n", .{func.upvalueCount});
-    closure.upvalues = try vm.allocator.alloc(?*ObjUpvalue, func.upvalueCount);
+    // std.debug.print("[newClosure] func.upvalue_count: {d}\n", .{func.upvalue_count});
+    closure.upvalues = try vm.allocator.alloc(?*ObjUpvalue, func.upvalue_count);
     for (closure.upvalues) |*upvalue| {
         upvalue.* = null;
     }
-    closure.upvalueCount = func.upvalueCount;
+    closure.upvalue_count = func.upvalue_count;
 
     return closure;
 }
@@ -180,40 +180,40 @@ pub fn copyString(vm: *VM, chars: []const u8) !*ObjString {
     const interned = vm.strings.findString(chars, hash);
     if (interned) |i| return i;
     const length = chars.len;
-    const heapChars = try vm.allocator.alloc(u8, length);
+    const heap_chars = try vm.allocator.alloc(u8, length);
 
-    @memcpy(heapChars, chars);
+    @memcpy(heap_chars, chars);
 
     // Create a slice from the allocated buffer
-    const charSlice = heapChars[0..length];
+    const char_slice = heap_chars[0..length];
 
-    return allocateString(vm, charSlice, hash);
+    return allocateString(vm, char_slice, hash);
 }
 
 pub fn freeObject(vm: *VM, obj: *Obj) void {
-    switch (obj.objType) {
+    switch (obj.obj_type) {
         .string => {
-            const objString: *ObjString = @ptrCast(obj);
-            vm.allocator.free(objString.chars);
-            vm.allocator.destroy(objString);
+            const obj_string: *ObjString = @ptrCast(obj);
+            vm.allocator.free(obj_string.chars);
+            vm.allocator.destroy(obj_string);
         },
         .function => {
-            const objFunction: *ObjFunction = @ptrCast(obj);
-            objFunction.chunk.free(vm.allocator);
-            vm.allocator.destroy(objFunction);
+            const obj_function: *ObjFunction = @ptrCast(obj);
+            obj_function.chunk.free(vm.allocator);
+            vm.allocator.destroy(obj_function);
         },
         .native => {
-            const objNative: *ObjNative = @ptrCast(obj);
-            vm.allocator.destroy(objNative);
+            const obj_native: *ObjNative = @ptrCast(obj);
+            vm.allocator.destroy(obj_native);
         },
         .closure => {
-            const objClosure: *ObjClosure = @ptrCast(obj);
-            vm.allocator.free(objClosure.upvalues);
-            vm.allocator.destroy(objClosure);
+            const obj_closure: *ObjClosure = @ptrCast(obj);
+            vm.allocator.free(obj_closure.upvalues);
+            vm.allocator.destroy(obj_closure);
         },
         .upvalue => {
-            const objUpvalue: *ObjUpvalue = @ptrCast(obj);
-            vm.allocator.destroy(objUpvalue);
+            const obj_upvalue: *ObjUpvalue = @ptrCast(obj);
+            vm.allocator.destroy(obj_upvalue);
         },
     }
 }

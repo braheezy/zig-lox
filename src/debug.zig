@@ -38,28 +38,28 @@ pub fn disassembleInstruction(chunk: *chk.Chunk, offset: usize) !usize {
         .JUMP_IF_FALSE => return jumpInstruction(@tagName(.JUMP_IF_FALSE), 1, chunk, offset),
         .LOOP => return jumpInstruction(@tagName(.JUMP_IF_FALSE), -1, chunk, offset),
         .CLOSURE => {
-            var newOffset = offset + 1;
+            var new_offset = offset + 1;
 
-            const constant = chunk.code[newOffset];
-            newOffset += 1;
+            const constant = chunk.code[new_offset];
+            new_offset += 1;
             print("{s:<20} {d:>4} ", .{ "CLOSURE", constant });
             try value.printValue(chunk.constants.values[constant], std.io.getStdErr().writer());
             print("\n", .{});
 
             const function = chunk.constants.values[constant].asFunction();
-            for (0..function.upvalueCount) |_| {
-                const isLocal = chunk.code[newOffset];
-                newOffset += 1;
-                const index = chunk.code[newOffset];
-                newOffset += 1;
+            for (0..function.upvalue_count) |_| {
+                const is_local = chunk.code[new_offset];
+                new_offset += 1;
+                const index = chunk.code[new_offset];
+                new_offset += 1;
                 print("{d:>4}      |                     {s} {d}\n", .{
-                    newOffset - 2,
-                    if (isLocal > 0) "local" else "upvalue",
+                    new_offset - 2,
+                    if (is_local > 0) "local" else "upvalue",
                     index,
                 });
             }
 
-            return newOffset;
+            return new_offset;
         },
         else => {
             return simpleInstruction(@tagName(instruction), offset);

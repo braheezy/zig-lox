@@ -33,7 +33,7 @@ pub const VM = struct {
     stack_top: usize,
     writer: std.fs.File.Writer,
     objects: ?*obj.Obj,
-    openUpvalues: ?*obj.ObjUpvalue,
+    open_upvalues: ?*obj.ObjUpvalue,
     strings: *Table,
     globals: *Table,
 
@@ -58,7 +58,7 @@ pub const VM = struct {
             .globals = try Table.init(allocator),
             .frames = frames,
             .frame_count = 0,
-            .openUpvalues = null,
+            .open_upvalues = null,
         };
 
         try v.defineNative("clock", clockNative);
@@ -75,15 +75,15 @@ pub const VM = struct {
 
     pub fn resetStack(self: *VM) void {
         self.stack_top = 0;
-        self.openUpvalues = null;
+        self.open_upvalues = null;
     }
 
     fn freeObjects(self: *VM) void {
         var current = self.objects;
         while (current) |object| {
-            const nextObject = object.next;
+            const next_object = object.next;
             obj.freeObject(self, object);
-            current = nextObject;
+            current = next_object;
         }
     }
 
@@ -92,7 +92,7 @@ pub const VM = struct {
         const function = try cmp.current_compiler.?.compile(source);
         if (function) |_| {
             self.push(Value.object(&function.?.obj));
-            // print("[interpret] function.upvalueCount: {d}\n", .{function.?.upvalueCount});
+            // print("[interpret] function.upvalue_count: {d}\n", .{function.?.upvalue_count});
             const closure = try obj.newClosure(self, function.?);
             _ = self.pop();
             self.push(Value.object(&closure.obj));
@@ -139,8 +139,8 @@ pub const VM = struct {
     pub fn defineNative(self: *VM, name: []const u8, function: obj.NativeFn) !void {
         const result = try obj.copyString(self, name);
         self.push(Value.object(&result.obj));
-        const nativeFunc = try obj.newNative(self, function);
-        self.push(Value.object(&nativeFunc.obj));
+        const native_func = try obj.newNative(self, function);
+        self.push(Value.object(&native_func.obj));
         _ = try self.globals.set(self.stack[0].asString(), self.stack[1]);
         _ = self.pop();
         _ = self.pop();
@@ -204,8 +204,8 @@ pub const VM = struct {
                     try self.writer.writeAll("\n");
                 },
                 .CALL => {
-                    const argCount = self.readByte();
-                    if (!self.callValue(self.peek(argCount), argCount)) {
+                    const arg_count = self.readByte();
+                    if (!self.callValue(self.peek(arg_count), arg_count)) {
                         return .INTERPRET_COMPILE_ERROR;
                     }
                 },
@@ -213,13 +213,13 @@ pub const VM = struct {
                     const func = self.readConstant().asFunction();
                     const closure = try obj.newClosure(self, func);
                     self.push(Value.object(&closure.obj));
-                    for (0..closure.upvalueCount) |i| {
-                        const isLocal = self.readByte();
+                    for (0..closure.upvalue_count) |i| {
+                        const is_local = self.readByte();
                         const index = self.readByte();
-                        if (isLocal != 0) {
+                        if (is_local != 0) {
                             closure.upvalues[i] = try self.captureUpvalue(&frame.slots[index]);
                         } else {
-                            print("len of frame.closure.upvalues: {d}. func.upvalueCount: {d}\n", .{ frame.closure.upvalues.len, func.upvalueCount });
+                            // print("len of frame.closure.upvalues: {d}. func.upvalue_count: {d}\n", .{ frame.closure.upvalues.len, func.upvalue_count });
                             closure.upvalues[i] = frame.closure.upvalues[index];
                         }
                     }
@@ -276,8 +276,8 @@ pub const VM = struct {
                 },
                 .SET_GLOBAL => {
                     const name = self.readString();
-                    const keyFound = try self.globals.set(name, self.peek(0));
-                    if (keyFound) {
+                    const key_found = try self.globals.set(name, self.peek(0));
+                    if (key_found) {
                         _ = self.globals.delete(name);
                         self.runtimeError("Undefined variable '{s}'.", .{name.chars});
                         return .INTERPRET_RUNTIME_ERROR;
@@ -312,7 +312,7 @@ pub const VM = struct {
     }
 
     fn getFrame(self: *VM) *CallFrame {
-        // because frameCoune is usize, frameCount - 1 could be interger overflow
+        // because frame_count is usize, frame_count - 1 could be interger overflow
         return if (self.frame_count > 0) &self.frames[self.frame_count - 1] else unreachable;
     }
 
@@ -324,9 +324,9 @@ pub const VM = struct {
         }
     }
 
-    fn call(self: *VM, closure: *obj.ObjClosure, argCount: u8) bool {
-        if (argCount != closure.function.arity) {
-            self.runtimeError("Expected {d} arguments but got {d}.\n", .{ closure.function.arity, argCount });
+    fn call(self: *VM, closure: *obj.ObjClosure, arg_count: u8) bool {
+        if (arg_count != closure.function.arity) {
+            self.runtimeError("Expected {d} arguments but got {d}.\n", .{ closure.function.arity, arg_count });
             return false;
         }
         if (self.frame_count == FRAMES_MAX) {
@@ -335,25 +335,25 @@ pub const VM = struct {
         }
         const frame = &self.frames[self.frame_count];
         self.frame_count += 1;
-        // print("[call] closure.upvalueCount: {d}\n", .{closure.upvalueCount});
+        // print("[call] closure.upvalue_count: {d}\n", .{closure.upvalue_count});
         frame.closure = closure;
         frame.ip = 0;
 
-        frame.slot_index = self.stack_top - argCount - 1;
+        frame.slot_index = self.stack_top - arg_count - 1;
 
         frame.slots = self.stack[frame.slot_index..];
         return true;
     }
 
-    fn callValue(self: *VM, callee: Value, argCount: u8) bool {
+    fn callValue(self: *VM, callee: Value, arg_count: u8) bool {
         if (callee.isObject()) {
             switch (callee.objType()) {
-                .closure => return self.call(callee.asClosure(), argCount),
+                .closure => return self.call(callee.asClosure(), arg_count),
                 .native => {
                     const native = callee.asNative();
-                    const args = self.stack[self.stack_top - argCount .. self.stack_top];
-                    const result = native(argCount, args);
-                    self.stack_top -= argCount + 1;
+                    const args = self.stack[self.stack_top - arg_count .. self.stack_top];
+                    const result = native(arg_count, args);
+                    self.stack_top -= arg_count + 1;
                     self.push(result);
                     return true;
                 },
@@ -365,30 +365,30 @@ pub const VM = struct {
     }
 
     fn captureUpvalue(self: *VM, local: *Value) !*obj.ObjUpvalue {
-        var prevUpvalue: ?*obj.ObjUpvalue = null;
-        var upvalue = self.openUpvalues;
-        while (upvalue) |currentUpvalue| {
-            if (@intFromPtr(currentUpvalue.location) <= @intFromPtr(local)) break;
-            prevUpvalue = currentUpvalue;
-            upvalue = currentUpvalue.next;
+        var prev_upvalue: ?*obj.ObjUpvalue = null;
+        var upvalue = self.open_upvalues;
+        while (upvalue) |current_upvalue| {
+            if (@intFromPtr(current_upvalue.location) <= @intFromPtr(local)) break;
+            prev_upvalue = current_upvalue;
+            upvalue = current_upvalue.next;
         }
-        if (upvalue) |currentUpvalue| {
-            if (currentUpvalue.location == local) return currentUpvalue;
+        if (upvalue) |current_upvalue| {
+            if (current_upvalue.location == local) return current_upvalue;
         }
 
-        var createdUpvalue = try obj.newUpvalue(self, local);
-        createdUpvalue.next = upvalue;
-        if (prevUpvalue) |*pre| pre.*.next = createdUpvalue else self.openUpvalues = createdUpvalue;
-        return createdUpvalue;
+        var created_upvalue = try obj.newUpvalue(self, local);
+        created_upvalue.next = upvalue;
+        if (prev_upvalue) |*pre| pre.*.next = created_upvalue else self.open_upvalues = created_upvalue;
+        return created_upvalue;
     }
 
     fn closeUpvalues(self: *VM, last: *Value) void {
-        while (self.openUpvalues) |currentUpvalue| {
-            if (@intFromPtr(currentUpvalue.location) < @intFromPtr(last)) break;
-            var upvalue = currentUpvalue;
+        while (self.open_upvalues) |current_upvalue| {
+            if (@intFromPtr(current_upvalue.location) < @intFromPtr(last)) break;
+            var upvalue = current_upvalue;
             upvalue.closed = upvalue.location.*;
             upvalue.location = &upvalue.closed;
-            self.openUpvalues = upvalue.next;
+            self.open_upvalues = upvalue.next;
         }
     }
 
@@ -411,7 +411,7 @@ pub const VM = struct {
 
     fn readByte(self: *VM) u8 {
         const frame = self.getFrame();
-        // std.debug.print("frameCount: {}, frame.ip: {}, code.len: {}\n", .{ self.frameCount, frame.ip, frame.function.chunk.code.len });
+        // std.debug.print("frame_count: {}, frame.ip: {}, code.len: {}\n", .{ self.frame_count, frame.ip, frame.function.chunk.code.len });
 
         const byte = frame.closure.function.chunk.code[frame.ip];
         frame.ip += 1;
@@ -419,10 +419,10 @@ pub const VM = struct {
     }
 
     fn readConstant(self: *VM) Value {
-        const constantIndex = readByte(self);
+        const constant_index = readByte(self);
         const frame = self.getFrame();
         // print("[readConstant] frame.closure.function.chunk.constants.values: {any}\n", .{frame.closure.function.chunk.constants.values});
-        return frame.closure.function.chunk.constants.values[constantIndex];
+        return frame.closure.function.chunk.constants.values[constant_index];
     }
 
     fn readShort(self: *VM) u16 {
@@ -459,14 +459,13 @@ pub const VM = struct {
     }
 };
 
-pub fn clockNative(argCount: u8, args: []Value) Value {
-    _ = argCount;
+pub fn clockNative(arg_count: u8, args: []Value) Value {
+    _ = arg_count;
     _ = args;
 
     const now: i64 = std.time.timestamp();
     const seconds: u64 = @intCast(now);
-    const fseconds: f64 = @floatFromInt(seconds);
-    return Value.number(fseconds);
+    return Value.number(@floatFromInt(seconds));
 }
 fn opAdd(a: f64, b: f64) f64 {
     return a + b;

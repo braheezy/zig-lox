@@ -12,7 +12,8 @@ const OpCode = ch.OpCode;
 
 pub const DEBUG_TRACE_EXECUTION = config.debug;
 pub const DEBUG_PRINT_CODE = config.debug;
-const oneMB = 1.049E+6;
+pub const DEBUG_STRESS_GC = config.stress_gc;
+const one_mb = 1.049E+6;
 
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 pub var allocator = gpa.allocator();
@@ -87,9 +88,9 @@ pub fn repl(writer: std.fs.File.Writer, hide_output: bool) !void {
         @memcpy(sentinel_line[0..line.len], line);
 
         _ = try vm.interpret(sentinel_line);
-        if (cmp.parser.hadError) {
+        if (cmp.parser.had_error) {
             // reset error and let user continue to use repl
-            cmp.parser.hadError = false;
+            cmp.parser.had_error = false;
         }
     }
 }
@@ -103,7 +104,7 @@ pub fn runFile(path: []u8) !void {
 
     const file_bytes: [:0]u8 = file.readToEndAllocOptions(
         allocator,
-        oneMB,
+        one_mb,
         0,
         @alignOf(u8),
         0,

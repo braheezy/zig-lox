@@ -44,9 +44,9 @@ pub const Table = struct {
     }
 
     pub fn set(self: *Table, key: *ObjString, value: Value) !bool {
-        const fCap: f64 = @floatFromInt(self.capacity);
-        const limit: u32 = @intFromFloat(fCap * TABLE_MAX_LOAD);
-        var isNewKey = false;
+        const f_cap: f64 = @floatFromInt(self.capacity);
+        const limit: u32 = @intFromFloat(f_cap * TABLE_MAX_LOAD);
+        var is_new_key = false;
         if (self.count + 1 > limit) {
             const new_capacity = memory.growCapacity(self.capacity);
             try self.adjustCapacity(new_capacity);
@@ -55,19 +55,19 @@ pub const Table = struct {
             const entry = findEntry(entries, self.capacity, key);
 
             if (entry) |e| {
-                isNewKey = (e.key == null);
-                if (isNewKey and e.value.isNil()) {
+                is_new_key = (e.key == null);
+                if (is_new_key and e.value.isNil()) {
                     self.count += 1;
                 }
 
                 e.key = key;
                 e.value = value;
-                return isNewKey;
+                return is_new_key;
             } else {
-                return isNewKey;
+                return is_new_key;
             }
         }
-        return isNewKey;
+        return is_new_key;
     }
 
     pub fn delete(self: *Table, key: *ObjString) bool {

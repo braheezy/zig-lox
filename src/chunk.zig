@@ -68,8 +68,8 @@ pub const Chunk = struct {
 
     pub fn write(self: *Chunk, allocator: *memory.VMAllocator, byte: u8, line: u32) void {
         if (self.capacity < self.len + 1) {
-            const oldCapacity = self.capacity;
-            self.capacity = memory.growCapacity(oldCapacity);
+            const old_capacity = self.capacity;
+            self.capacity = memory.growCapacity(old_capacity);
             self.code = allocator.growArray(u8, self.code, self.capacity);
             self.lines = allocator.growArray(u32, self.lines, self.capacity);
         }
@@ -78,7 +78,7 @@ pub const Chunk = struct {
         self.len += 1;
     }
     pub fn addConstant(self: *Chunk, constant: value.Value) u32 {
-        // std.debug.print("[addConstant]\n", .{});
+        // std.debug.print("[add_constant]\n", .{});
         self.constants.write(constant);
         return @intCast(self.constants.len - 1);
     }

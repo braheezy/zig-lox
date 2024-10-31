@@ -48,7 +48,7 @@ pub const TokenType = enum(u8) {
 };
 
 pub const Token = struct {
-    tokenType: TokenType,
+    token_type: TokenType,
     start: []const u8,
     line: u32,
 };
@@ -141,11 +141,11 @@ pub const Scanner = struct {
         }
     }
 
-    fn checkKeyword(self: *Scanner, start: u8, length: u8, rest: []const u8, tokenType: TokenType) TokenType {
+    fn checkKeyword(self: *Scanner, start: u8, length: u8, rest: []const u8, token_type: TokenType) TokenType {
         if (((self.current - self.start) == start + length) and
             (std.mem.eql(u8, self.source[self.start + start .. self.start + start + length], rest)))
         {
-            return tokenType;
+            return token_type;
         }
 
         return TokenType.IDENTIFIER;
@@ -230,9 +230,9 @@ pub const Scanner = struct {
         return self.source[self.current + 1];
     }
 
-    fn makeToken(self: *Scanner, tokenType: TokenType) Token {
+    fn makeToken(self: *Scanner, token_type: TokenType) Token {
         return Token{
-            .tokenType = tokenType,
+            .token_type = token_type,
             .start = self.source[self.start..self.current],
             .line = self.line,
         };
@@ -240,7 +240,7 @@ pub const Scanner = struct {
 
     fn errorToken(self: *Scanner, message: []const u8) Token {
         return Token{
-            .tokenType = .ERROR,
+            .token_type = .ERROR,
             .start = message,
             .line = self.line,
         };

@@ -9,8 +9,10 @@ pub fn build(b: *std.Build) !void {
     b.installArtifact(exe);
 
     const debug = b.option(bool, "debug", "enable debug output") orelse false;
+    const stress = b.option(bool, "stress", "enable gc stress") orelse false;
     const options = b.addOptions();
     options.addOption(bool, "debug", debug);
+    options.addOption(bool, "stress_gc", stress);
 
     exe.root_module.addOptions("config", options);
 

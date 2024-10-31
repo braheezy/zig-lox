@@ -41,7 +41,7 @@ pub const VMAllocator = struct {
         old_array: []T,
         new_count: usize,
     ) []T {
-        // std.debug.print("[growArray] {any}\n", .{T});
+        // std.debug.print("[grow_array] {any}\n", .{T});
         const new_array = self.reallocate(
             T,
             old_array,
