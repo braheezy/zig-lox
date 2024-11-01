@@ -13,6 +13,7 @@ const OpCode = ch.OpCode;
 pub const DEBUG_TRACE_EXECUTION = config.debug;
 pub const DEBUG_PRINT_CODE = config.debug;
 pub const DEBUG_STRESS_GC = config.stress_gc;
+pub const DEBUG_LOG_GC = config.log_gc;
 const one_mb = 1.049E+6;
 
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};

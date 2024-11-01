@@ -425,7 +425,7 @@ const Parser = struct {
 
     fn function(self: *Parser, function_type: FunctionType) std.mem.Allocator.Error!void {
         // print("[function] current_compiler.?.upvalues[0].is_local: {any}\n", .{current_compiler.?.upvalues[0].is_local});
-        current_compiler = try Compiler.init(main.vm, function_type);
+        try Compiler.init(main.vm, function_type);
         current_compiler.?.beginScope();
 
         self.consume(.LEFT_PAREN, "Expect '(' after function name.");
@@ -604,7 +604,7 @@ const Parser = struct {
         const string_content = lexeme[1 .. lexeme.len - 1];
 
         // Create an ObjString by copying the string content
-        const obj_string = obj.copyString(main.vm, string_content) catch |e| {
+        const obj_string = obj.copyString(current_compiler.?.vm_allocator.vm.?, string_content) catch |e| {
             std.debug.print("Failed to copy string: {any}", .{e});
             std.process.exit(1);
         };
@@ -662,36 +662,44 @@ pub const Compiler = struct {
     func_type: FunctionType,
     vm_allocator: *memory.VMAllocator,
 
-    pub fn init(vm: *VM, func_type: FunctionType) !*Compiler {
-        const compiler = try vm.allocator.create(Compiler);
-        compiler.* = Compiler{
-            .enclosing = current_compiler,
-            .scope_depth = 0,
-            .local_count = 0,
-            .locals = [_]Local{.{
-                .name = undefined,
-                .depth = 0,
-                .is_captured = false,
-            }} ** UINT8_COUNT,
-            .upvalues = [_]Upvalue{.{
-                .index = 0,
-                .is_local = false,
-            }} ** UINT8_COUNT,
-            .function = try obj.newFunction(vm),
-            .func_type = func_type,
-            .vm_allocator = vm.allocator,
-        };
+    pub fn init(vm: *VM, func_type: FunctionType) !void {
+        // print("[compiler.init] func_type: {s}\n", .{@tagName(func_type)});
+        const compiler: *Compiler = try main.vm.allocator.create(Compiler);
+        // const compiler = try vm.allocator.create(Compiler);
+        // compiler.* = Compiler{
+        //     .enclosing = current_compiler,
+        //     .scope_depth = 0,
+        //     .local_count = 0,
+        //     .locals = [_]Local{.{
+        //         .name = undefined,
+        //         .depth = 0,
+        //         .is_captured = false,
+        //     }} ** UINT8_COUNT,
+        //     .upvalues = [_]Upvalue{.{
+        //         .index = 0,
+        //         .is_local = false,
+        //     }} ** UINT8_COUNT,
+        //     .function = try obj.newFunction(vm),
+        //     .func_type = func_type,
+        //     .vm_allocator = vm.allocator,
+        // };
+        compiler.enclosing = current_compiler;
+        compiler.function = try obj.newFunction(vm);
+        compiler.func_type = func_type;
+        compiler.local_count = 0;
+        compiler.scope_depth = 0;
+        compiler.vm_allocator = vm.allocator;
+        current_compiler = compiler;
 
         if (func_type != .Script) {
-            compiler.function.name = try obj.copyString(vm, parser.previous.start);
+            current_compiler.?.function.name = try obj.copyString(vm, parser.previous.start);
+            // print("[compiler.init] function name: {s}\n", .{current_compiler.?.function.name.?.chars});
         }
         // claim slot 0 for vm usage
-        const local = &compiler.locals[0];
-        compiler.local_count += 1;
+        const local = &current_compiler.?.locals[0];
+        current_compiler.?.local_count += 1;
         local.depth = 0;
         local.name.start = "";
-
-        return compiler;
     }
 
     pub fn compile(self: *Compiler, source: [:0]u8) !?*obj.ObjFunction {
@@ -831,7 +839,7 @@ pub const Compiler = struct {
 
     fn makeConstant(self: *Compiler, value: Value) u8 {
         // print("[makeConstant 1] made: {any}\n", .{self.function.chunk.constants});
-        const constant = self.currentChunk().addConstant(value);
+        const constant = self.currentChunk().addConstant(self.vm_allocator.vm.?, value);
         if (constant > std.math.maxInt(u8)) {
             parser.err("Too many constants in one chunk.");
             return 0;
@@ -883,6 +891,16 @@ pub const Compiler = struct {
         self.currentChunk().write(self.vm_allocator, byte, parser.previous.line);
     }
 };
+
+pub fn markCompilerRoots() void {
+    // print("[markCompilerRoots 1]\n", .{});
+    var compiler = current_compiler;
+    while (compiler) |c| {
+        // print("[markCompilerRoots 2]\n", .{});
+        c.vm_allocator.markObject(&c.function.obj);
+        compiler = c.enclosing;
+    }
+}
 
 fn identifiersEqual(a: *const Token, b: *const Token) bool {
     if (a.start.len != b.start.len) return false;

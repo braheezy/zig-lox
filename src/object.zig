@@ -1,6 +1,7 @@
 const std = @import("std");
 
 const Chunk = @import("chunk.zig").Chunk;
+const main = @import("main.zig");
 const Value = @import("value.zig").Value;
 const VM = @import("vm.zig").VM;
 pub const ObjType = enum(u8) {
@@ -13,6 +14,7 @@ pub const ObjType = enum(u8) {
 
 pub const Obj = struct {
     obj_type: ObjType,
+    is_marked: bool,
     next: ?*Obj,
 };
 
@@ -61,6 +63,7 @@ pub const ObjNative = struct {
 
 // Allocates an object of a given type.
 pub fn allocateObject(vm: *VM, comptime T: type, obj_type: ObjType) std.mem.Allocator.Error!*T {
+    // std.debug.print("[allocateObject 1] creating type: {any}\n", .{T});
     const obj = try vm.allocator.create(T);
     switch (T) {
         ObjString => {
@@ -68,6 +71,7 @@ pub fn allocateObject(vm: *VM, comptime T: type, obj_type: ObjType) std.mem.Allo
                 .obj = Obj{
                     .obj_type = obj_type,
                     .next = vm.objects,
+                    .is_marked = false,
                 },
                 .hash = 0,
                 .chars = undefined,
@@ -78,6 +82,7 @@ pub fn allocateObject(vm: *VM, comptime T: type, obj_type: ObjType) std.mem.Allo
                 .obj = Obj{
                     .obj_type = obj_type,
                     .next = vm.objects,
+                    .is_marked = false,
                 },
                 .arity = 0,
                 .name = null,
@@ -90,6 +95,7 @@ pub fn allocateObject(vm: *VM, comptime T: type, obj_type: ObjType) std.mem.Allo
                 .obj = Obj{
                     .obj_type = obj_type,
                     .next = vm.objects,
+                    .is_marked = false,
                 },
                 .function = undefined,
             };
@@ -99,6 +105,7 @@ pub fn allocateObject(vm: *VM, comptime T: type, obj_type: ObjType) std.mem.Allo
                 .obj = Obj{
                     .obj_type = obj_type,
                     .next = vm.objects,
+                    .is_marked = false,
                 },
                 .function = undefined,
                 .upvalues = undefined,
@@ -110,6 +117,7 @@ pub fn allocateObject(vm: *VM, comptime T: type, obj_type: ObjType) std.mem.Allo
                 .obj = Obj{
                     .obj_type = obj_type,
                     .next = vm.objects,
+                    .is_marked = false,
                 },
                 .location = undefined,
                 .next = null,
@@ -120,39 +128,53 @@ pub fn allocateObject(vm: *VM, comptime T: type, obj_type: ObjType) std.mem.Allo
     }
 
     vm.objects = &obj.obj;
+
+    if (main.DEBUG_LOG_GC) std.debug.print("allocate {d} for {s}\n", .{
+        @sizeOf(T),
+        @tagName(obj_type),
+    });
+
     return obj;
 }
 
 // Allocates an ObjString with the provided characters.
 pub fn allocateString(vm: *VM, chars: []const u8, hash: u64) !*ObjString {
+    // std.debug.print("[allocateString] {s}\n", .{chars});
     var string = try allocateObject(vm, ObjString, .string);
     string.chars = chars;
     string.hash = hash;
-    _ = try vm.strings.set(string, Value.nil());
+    vm.push(Value.object(&string.obj));
+    _ = vm.strings.set(string, Value.nil());
+    _ = vm.pop();
     return string;
 }
 
 pub fn newFunction(vm: *VM) std.mem.Allocator.Error!*ObjFunction {
+    // std.debug.print("[newFunction]\n", .{});
     var func: *ObjFunction = try allocateObject(vm, ObjFunction, .function);
     func.chunk = try Chunk.init(vm.allocator);
     return func;
 }
 
 pub fn newNative(vm: *VM, func: NativeFn) std.mem.Allocator.Error!*ObjNative {
+    // std.debug.print("[newNative] allocating native\n", .{});
     var native: *ObjNative = try allocateObject(vm, ObjNative, .native);
     native.function = func;
+    // std.debug.print("[newNative END]\n", .{});
     return native;
 }
 
 pub fn newClosure(vm: *VM, func: *ObjFunction) !*ObjClosure {
-    var closure: *ObjClosure = try allocateObject(vm, ObjClosure, .closure);
-    closure.function = func;
-
-    // std.debug.print("[newClosure] func.upvalue_count: {d}\n", .{func.upvalue_count});
-    closure.upvalues = try vm.allocator.alloc(?*ObjUpvalue, func.upvalue_count);
-    for (closure.upvalues) |*upvalue| {
+    // std.debug.print("[newClosure] \n", .{});
+    const upvalues = vm.allocator.reallocate(?*ObjUpvalue, null, func.upvalue_count);
+    for (upvalues) |*upvalue| {
         upvalue.* = null;
     }
+
+    var closure: *ObjClosure = try allocateObject(vm, ObjClosure, .closure);
+    closure.function = func;
+    // std.debug.print("[newClosure] func.upvalue_count: {d}\n", .{func.upvalue_count});
+    closure.upvalues = upvalues;
     closure.upvalue_count = func.upvalue_count;
 
     return closure;
@@ -176,21 +198,20 @@ pub fn takeString(vm: *VM, chars: []const u8) !*ObjString {
 
 // Copies the input string into a new heap allocation and creates an ObjString.
 pub fn copyString(vm: *VM, chars: []const u8) !*ObjString {
+    // std.debug.print("[copyString] {s}\n", .{chars});
     const hash = hashString(chars);
     const interned = vm.strings.findString(chars, hash);
     if (interned) |i| return i;
     const length = chars.len;
-    const heap_chars = try vm.allocator.alloc(u8, length);
+    const heap_chars = vm.allocator.reallocate(u8, null, length);
 
     @memcpy(heap_chars, chars);
 
-    // Create a slice from the allocated buffer
-    const char_slice = heap_chars[0..length];
-
-    return allocateString(vm, char_slice, hash);
+    return allocateString(vm, heap_chars, hash);
 }
 
 pub fn freeObject(vm: *VM, obj: *Obj) void {
+    if (main.DEBUG_LOG_GC) std.debug.print("freeing type: {s}\n", .{@tagName(obj.obj_type)});
     switch (obj.obj_type) {
         .string => {
             const obj_string: *ObjString = @ptrCast(obj);
@@ -199,6 +220,8 @@ pub fn freeObject(vm: *VM, obj: *Obj) void {
         },
         .function => {
             const obj_function: *ObjFunction = @ptrCast(obj);
+            // std.debug.print("[freeObject] freeing function: {s}\n", .{if (obj_function.name) |name| name.chars else "null-name"});
+
             obj_function.chunk.free(vm.allocator);
             vm.allocator.destroy(obj_function);
         },

@@ -11,9 +11,9 @@ pub const Table = struct {
     count: u32,
     capacity: usize,
     entries: ?[]Entry,
-    allocator: *std.mem.Allocator,
+    allocator: *memory.VMAllocator,
 
-    pub fn init(allocator: *std.mem.Allocator) !*Table {
+    pub fn init(allocator: *memory.VMAllocator) !*Table {
         const table = try allocator.create(Table);
         table.* = Table{
             .count = 0,
@@ -43,13 +43,14 @@ pub const Table = struct {
         return &entry.value;
     }
 
-    pub fn set(self: *Table, key: *ObjString, value: Value) !bool {
+    pub fn set(self: *Table, key: *ObjString, value: Value) bool {
+        // std.debug.print("[set]\n", .{});
         const f_cap: f64 = @floatFromInt(self.capacity);
         const limit: u32 = @intFromFloat(f_cap * TABLE_MAX_LOAD);
         var is_new_key = false;
         if (self.count + 1 > limit) {
             const new_capacity = memory.growCapacity(self.capacity);
-            try self.adjustCapacity(new_capacity);
+            self.adjustCapacity(new_capacity);
         }
         if (self.entries) |entries| {
             const entry = findEntry(entries, self.capacity, key);
@@ -122,6 +123,19 @@ pub const Table = struct {
         }
     }
 
+    pub fn removeWhite(self: *Table) void {
+        // std.debug.print("[removeWhite] self.capacity: {d}\n", .{self.capacity});
+        for (0..self.capacity) |i| {
+            const entry = &self.entries.?[i];
+            if (entry.key) |key| {
+                if (!key.obj.is_marked) {
+                    // std.debug.print("[removeWhite] deleting {s}\n", .{key.chars});
+                    _ = self.delete(key);
+                }
+            }
+        }
+    }
+
     fn findEntry(entries: []Entry, capacity: usize, key: *ObjString) ?*Entry {
         var index = key.hash % capacity;
         var tombstone: ?*Entry = null;
@@ -147,8 +161,9 @@ pub const Table = struct {
         }
     }
 
-    fn adjustCapacity(self: *Table, capacity: usize) !void {
-        var entries = try self.allocator.alloc(Entry, capacity);
+    fn adjustCapacity(self: *Table, capacity: usize) void {
+        // std.debug.print("[adjustCapacity] to {d}\n", .{capacity});
+        var entries = self.allocator.reallocate(Entry, null, capacity);
         for (0..capacity) |i| {
             entries[i].key = null;
             entries[i].value = Value.nil();
@@ -177,13 +192,3 @@ const Entry = struct {
     key: ?*ObjString,
     value: Value,
 };
-
-test "Table initialization" {
-    var allocator = std.testing.allocator;
-    const table = try Table.init(&allocator);
-    defer table.free();
-
-    try std.testing.expectEqual(@as(u32, 0), table.count);
-    try std.testing.expectEqual(@as(u32, 0), table.capacity);
-    try std.testing.expect(table.entries == null);
-}

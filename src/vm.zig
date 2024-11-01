@@ -3,7 +3,7 @@ const std = @import("std");
 const OpCode = @import("chunk.zig").OpCode;
 const cmp = @import("compiler.zig");
 const debug = @import("debug.zig");
-const DEBUG_TRACE_EXECUTION = @import("main.zig").DEBUG_TRACE_EXECUTION;
+const main = @import("main.zig");
 const memory = @import("memory.zig");
 const obj = @import("object.zig");
 const Table = @import("table.zig").Table;
@@ -36,6 +36,9 @@ pub const VM = struct {
     open_upvalues: ?*obj.ObjUpvalue,
     strings: *Table,
     globals: *Table,
+    gray_count: usize,
+    gray_capacity: usize,
+    gray_stack: []?*obj.Obj,
 
     pub fn init(allocator: *std.mem.Allocator, writer: std.fs.File.Writer) !*VM {
         const stack = [_]Value{.{ .none = {} }} ** STACK_MAX;
@@ -54,13 +57,19 @@ pub const VM = struct {
             .stack_top = 0,
             .writer = writer,
             .objects = null,
-            .strings = try Table.init(allocator),
-            .globals = try Table.init(allocator),
+            .strings = try Table.init(&vm_allocator),
+            .globals = try Table.init(&vm_allocator),
             .frames = frames,
             .frame_count = 0,
             .open_upvalues = null,
+            .gray_capacity = 0,
+            .gray_count = 0,
+            .gray_stack = &[_]?*obj.Obj{},
         };
 
+        vm_allocator.vm = v;
+
+        // print("[vm.init] v.*.stack[0]: {any}\n", .{v.*.stack[0]});
         try v.defineNative("clock", clockNative);
 
         return v;
@@ -85,10 +94,11 @@ pub const VM = struct {
             obj.freeObject(self, object);
             current = next_object;
         }
+        self.allocator.allocator.free(self.gray_stack);
     }
 
     pub fn interpret(self: *VM, source: [:0]u8) !InterpretResult {
-        cmp.current_compiler = try cmp.Compiler.init(self, .Script);
+        try cmp.Compiler.init(self, .Script);
         const function = try cmp.current_compiler.?.compile(source);
         if (function) |_| {
             self.push(Value.object(&function.?.obj));
@@ -105,6 +115,7 @@ pub const VM = struct {
     }
 
     pub fn push(self: *VM, value: Value) void {
+        // print("[stack.push]\n", .{});
         self.stack[self.stack_top] = value;
         self.stack_top += 1;
     }
@@ -124,7 +135,7 @@ pub const VM = struct {
             const frame = &self.frames[i];
             const func = frame.closure.function;
             const instruction = frame.ip - 1;
-            print("[line {d}] in ", .{func.chunk.lines[instruction]});
+            print("<line {d}> in ", .{func.chunk.lines[instruction]});
             if (func.name) |name| {
                 print("{s}()\n", .{name.chars});
             } else {
@@ -137,25 +148,30 @@ pub const VM = struct {
     }
 
     pub fn defineNative(self: *VM, name: []const u8, function: obj.NativeFn) !void {
+        // print("[defineNative 1] self.stack[0]: {any}\n", .{self.stack[0]});
         const result = try obj.copyString(self, name);
+        // print("[defineNative 2] self.stack[0]: {any}\n", .{self.stack[0]});
         self.push(Value.object(&result.obj));
         const native_func = try obj.newNative(self, function);
+        // print("[defineNative 3] self.stack[0]: {any}\n", .{self.stack[0]});
+        // print("[defineNative 4]\n", .{});
         self.push(Value.object(&native_func.obj));
-        _ = try self.globals.set(self.stack[0].asString(), self.stack[1]);
+        _ = self.globals.set(self.stack[0].asString(), self.stack[1]);
         _ = self.pop();
         _ = self.pop();
+        // print("[defineNative END]\n", .{});
     }
 
     pub fn run(self: *VM) !InterpretResult {
         while (true) {
-            if (DEBUG_TRACE_EXECUTION) {
+            if (main.DEBUG_TRACE_EXECUTION) {
                 print("    ST: ", .{});
                 for (self.stack, 0..) |slot, i| {
                     const msg = try toString(slot, self.allocator.allocator);
                     print("[ {s} ]", .{msg});
-                    if (slot.isNumber()) self.allocator.free(msg);
+                    if (slot.isNumber()) self.allocator.allocator.free(msg);
 
-                    if (i == self.stack_top) break;
+                    if (i == self.stack_top - 1) break;
                 }
                 print("\n", .{});
 
@@ -262,7 +278,7 @@ pub const VM = struct {
                 .DEFINE_GLOBAL => {
                     const name = self.readString();
 
-                    _ = try self.globals.set(name, self.peek(0));
+                    _ = self.globals.set(name, self.peek(0));
                     _ = self.pop();
                 },
                 .GET_GLOBAL => {
@@ -276,7 +292,7 @@ pub const VM = struct {
                 },
                 .SET_GLOBAL => {
                     const name = self.readString();
-                    const key_found = try self.globals.set(name, self.peek(0));
+                    const key_found = self.globals.set(name, self.peek(0));
                     if (key_found) {
                         _ = self.globals.delete(name);
                         self.runtimeError("Undefined variable '{s}'.", .{name.chars});
@@ -401,7 +417,7 @@ pub const VM = struct {
         const a = self.pop().asString();
 
         const length = a.chars.len + b.chars.len;
-        var chars = try self.allocator.alloc(u8, length);
+        var chars = self.allocator.reallocate(u8, null, length);
         @memcpy(chars[0..a.chars.len], a.chars);
         @memcpy(chars[a.chars.len..length], b.chars);
 

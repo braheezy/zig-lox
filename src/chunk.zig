@@ -1,5 +1,6 @@
 const memory = @import("memory.zig");
 const value = @import("value.zig");
+const VM = @import("vm.zig").VM;
 pub const OpCode = enum(u8) {
     CONSTANT,
     NIL,
@@ -77,9 +78,12 @@ pub const Chunk = struct {
         self.lines[self.len] = line;
         self.len += 1;
     }
-    pub fn addConstant(self: *Chunk, constant: value.Value) u32 {
+    pub fn addConstant(self: *Chunk, vm: *VM, constant: value.Value) u32 {
         // std.debug.print("[add_constant]\n", .{});
+        vm.push(constant);
         self.constants.write(constant);
+        _ = vm.pop();
+        // _ = vm;
         return @intCast(self.constants.len - 1);
     }
 };

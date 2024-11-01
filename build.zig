@@ -10,9 +10,11 @@ pub fn build(b: *std.Build) !void {
 
     const debug = b.option(bool, "debug", "enable debug output") orelse false;
     const stress = b.option(bool, "stress", "enable gc stress") orelse false;
+    const gclog = b.option(bool, "gclog", "enable gc log") orelse false;
     const options = b.addOptions();
     options.addOption(bool, "debug", debug);
     options.addOption(bool, "stress_gc", stress);
+    options.addOption(bool, "log_gc", gclog);
 
     exe.root_module.addOptions("config", options);
 

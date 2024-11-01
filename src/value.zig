@@ -164,11 +164,6 @@ pub fn printValue(value: Value, writer: std.fs.File.Writer) !void {
                 .function => {
                     const func = value.asFunction();
                     try func.print(writer);
-                    if (func.name) |name| {
-                        try writer.print("<fn {s}>", .{name.chars});
-                    } else {
-                        try writer.print("<script>", .{});
-                    }
                 },
                 .native => try writer.print("<native fn>", .{}),
                 .closure => try value.asClosure().function.print(writer),
