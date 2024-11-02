@@ -44,7 +44,7 @@ pub const Table = struct {
     }
 
     pub fn set(self: *Table, key: *ObjString, value: Value) bool {
-        // std.debug.print("[set]\n", .{});
+        // std.debug.print("[set] self.capacity: {d}\n", .{self.capacity});
         const f_cap: f64 = @floatFromInt(self.capacity);
         const limit: u32 = @intFromFloat(f_cap * TABLE_MAX_LOAD);
         var is_new_key = false;

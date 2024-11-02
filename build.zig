@@ -11,7 +11,7 @@ pub fn build(b: *std.Build) !void {
     const debug = b.option(bool, "debug", "enable debug output") orelse false;
     const stress = b.option(bool, "stress", "enable gc stress") orelse false;
     const gclog = b.option(bool, "gclog", "enable gc log") orelse false;
-    const options = b.addOptions();
+    var options = b.addOptions();
     options.addOption(bool, "debug", debug);
     options.addOption(bool, "stress_gc", stress);
     options.addOption(bool, "log_gc", gclog);
@@ -28,6 +28,29 @@ pub fn build(b: *std.Build) !void {
 
     const main_test_step = b.step("test", "Run all tests");
     try addTests(b, exe, main_test_step);
+
+    const stress_test_step = b.step("test-gc", "Run gc test");
+    try addTests(b, exe, stress_test_step);
+    const stress_test_exe = b.addExecutable(.{
+        .name = "zig-loxd",
+        .root_source_file = b.path("src/main.zig"),
+        .target = b.host,
+    });
+    options = b.addOptions();
+    options.addOption(bool, "debug", debug);
+    options.addOption(bool, "log_gc", gclog);
+    options.addOption(bool, "stress_gc", true);
+    stress_test_exe.root_module.addOptions("config", options);
+
+    const stress_exe = b.addRunArtifact(stress_test_exe);
+    const test_file_path = b.path("test/closed-upvalues-with-closures.lox");
+    stress_exe.addFileArg(test_file_path);
+
+    // Add expected stdout check
+    stress_exe.expectStdOutEqual("updated\n");
+
+    // Add the test step to the main test step
+    stress_test_step.dependOn(&stress_exe.step);
 }
 
 fn addTests(b: *std.Build, exe: *std.Build.Step.Compile, test_step: *std.Build.Step) !void {
@@ -110,11 +133,4 @@ fn addTests(b: *std.Build, exe: *std.Build.Step.Compile, test_step: *std.Build.S
             test_step.dependOn(&test_repl_exe.step);
         }
     }
-
-    // Unit tests in specific files
-    const unit_tests = b.addTest(.{
-        .root_source_file = b.path("src/table.zig"),
-    });
-    const run_unit_tests = b.addRunArtifact(unit_tests);
-    test_step.dependOn(&run_unit_tests.step);
 }

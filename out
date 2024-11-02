@@ -1,0 +1,1261 @@
+-- gc begin
+-- gc end
+   collected 0 bytes (from 40 to 40) next at 80
+-- gc begin
+-- gc end
+   collected 0 bytes (from 80 to 80) next at 160
+[vm.init] v.*.strings.capacity: 0
+[vm.init] v.*.strings.count: 0
+[vm.init] v.*.globals.capacity: 0
+[vm.init] v.*.globals.count: 0
+-- gc begin
+-- gc end
+   collected 0 bytes (from 85 to 85) next at 170
+-- gc begin
+-- gc end
+   collected 0 bytes (from 125 to 125) next at 250
+allocate 40 for string
+[set] self.capacity: 0
+-- gc begin
+string mark clock
+string blacken clock
+-- gc end
+   collected 0 bytes (from 317 to 317) next at 634
+-- gc begin
+string mark clock
+string blacken clock
+-- gc end
+   collected 0 bytes (from 341 to 341) next at 682
+allocate 24 for native
+[set] self.capacity: 0
+-- gc begin
+string mark clock
+native mark <native fn>
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 533 to 533) next at 1066
+-- gc begin
+string mark clock
+native mark <native fn>
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 9269 to 9269) next at 18538
+-- gc begin
+string mark clock
+native mark <native fn>
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 9389 to 9389) next at 18778
+allocate 120 for function
+-- gc begin
+string mark clock
+native mark <native fn>
+function mark <script>
+function blacken <script>
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 9398 to 9398) next at 18796
+-- gc begin
+string mark clock
+native mark <native fn>
+function mark <script>
+function blacken <script>
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 9438 to 9438) next at 18876
+allocate 40 for string
+[set] self.capacity: 8
+-- gc begin
+string mark globalSet
+string mark clock
+native mark <native fn>
+function mark <script>
+function blacken <script>
+native blacken <native fn>
+string blacken clock
+string blacken globalSet
+-- gc end
+   collected 0 bytes (from 9566 to 9566) next at 19132
+-- gc begin
+string mark clock
+native mark <native fn>
+function mark <script>
+function blacken <script>
+string mark globalSet
+string blacken globalSet
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 9574 to 9574) next at 19148
+-- gc begin
+string mark clock
+native mark <native fn>
+function mark <script>
+function blacken <script>
+string mark globalSet
+string blacken globalSet
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 9606 to 9606) next at 19212
+-- gc begin
+string mark clock
+native mark <native fn>
+function mark <script>
+function blacken <script>
+string mark globalSet
+string blacken globalSet
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 9615 to 9615) next at 19230
+-- gc begin
+string mark clock
+native mark <native fn>
+function mark <script>
+function blacken <script>
+string mark globalSet
+string blacken globalSet
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 9655 to 9655) next at 19310
+allocate 40 for string
+[set] self.capacity: 8
+-- gc begin
+string mark clock
+native mark <native fn>
+function mark <script>
+function blacken <script>
+string mark globalSet
+string mark globalGet
+string blacken globalGet
+string blacken globalSet
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 9659 to 9659) next at 19318
+-- gc begin
+string mark clock
+native mark <native fn>
+function mark <script>
+function blacken <script>
+string mark globalSet
+string mark globalGet
+string blacken globalGet
+string blacken globalSet
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 9699 to 9699) next at 19398
+allocate 40 for string
+[set] self.capacity: 8
+-- gc begin
+string mark clock
+native mark <native fn>
+function mark <script>
+function blacken <script>
+string mark globalSet
+string mark globalGet
+string mark main
+string blacken main
+string blacken globalGet
+string blacken globalSet
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 18435 to 18435) next at 36870
+-- gc begin
+string mark clock
+native mark <native fn>
+function mark <script>
+function blacken <script>
+string mark globalSet
+string mark globalGet
+string mark main
+string blacken main
+string blacken globalGet
+string blacken globalSet
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 18555 to 18555) next at 37110
+allocate 120 for function
+-- gc begin
+string mark clock
+native mark <native fn>
+function mark <fn main>
+function mark <script>
+function blacken <script>
+string mark globalSet
+string mark globalGet
+string mark main
+string blacken main
+string blacken globalGet
+string blacken globalSet
+function blacken <fn main>
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 18562 to 18562) next at 37124
+-- gc begin
+string mark clock
+native mark <native fn>
+function mark <fn main>
+function mark <script>
+function blacken <script>
+string mark globalSet
+string mark globalGet
+string mark main
+string blacken main
+string blacken globalGet
+string blacken globalSet
+function blacken <fn main>
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 18602 to 18602) next at 37204
+allocate 40 for string
+[set] self.capacity: 8
+-- gc begin
+string mark initial
+string mark clock
+native mark <native fn>
+function mark <fn main>
+function mark <script>
+function blacken <script>
+string mark globalSet
+string mark globalGet
+string mark main
+string blacken main
+string blacken globalGet
+string blacken globalSet
+function blacken <fn main>
+native blacken <native fn>
+string blacken clock
+string blacken initial
+-- gc end
+   collected 0 bytes (from 18730 to 18730) next at 37460
+-- gc begin
+string mark clock
+native mark <native fn>
+function mark <fn main>
+function mark <script>
+function blacken <script>
+string mark globalSet
+string mark globalGet
+string mark main
+string blacken main
+string blacken globalGet
+string blacken globalSet
+function blacken <fn main>
+string mark initial
+string blacken initial
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 18738 to 18738) next at 37476
+-- gc begin
+string mark clock
+native mark <native fn>
+function mark <fn main>
+function mark <script>
+function blacken <script>
+string mark globalSet
+string mark globalGet
+string mark main
+string blacken main
+string blacken globalGet
+string blacken globalSet
+function blacken <fn main>
+string mark initial
+string blacken initial
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 18770 to 18770) next at 37540
+-- gc begin
+string mark clock
+native mark <native fn>
+function mark <fn main>
+function mark <script>
+function blacken <script>
+string mark globalSet
+string mark globalGet
+string mark main
+string blacken main
+string blacken globalGet
+string blacken globalSet
+function blacken <fn main>
+string mark initial
+string blacken initial
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 27506 to 27506) next at 55012
+-- gc begin
+string mark clock
+native mark <native fn>
+function mark <fn main>
+function mark <script>
+function blacken <script>
+string mark globalSet
+string mark globalGet
+string mark main
+string blacken main
+string blacken globalGet
+string blacken globalSet
+function blacken <fn main>
+string mark initial
+string blacken initial
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 27626 to 27626) next at 55252
+allocate 120 for function
+-- gc begin
+string mark clock
+native mark <native fn>
+function mark <script>
+function mark <fn main>
+function mark <script>
+function blacken <script>
+string mark globalSet
+string mark globalGet
+string mark main
+string blacken main
+string blacken globalGet
+string blacken globalSet
+function blacken <fn main>
+string mark initial
+string blacken initial
+function blacken <script>
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 27629 to 27629) next at 55258
+-- gc begin
+string mark clock
+native mark <native fn>
+function mark <script>
+function mark <fn main>
+function mark <script>
+function blacken <script>
+string mark globalSet
+string mark globalGet
+string mark main
+string blacken main
+string blacken globalGet
+string blacken globalSet
+function blacken <fn main>
+string mark initial
+string blacken initial
+function blacken <script>
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 27669 to 27669) next at 55338
+allocate 40 for string
+[set] self.capacity: 8
+-- gc begin
+string mark clock
+native mark <native fn>
+function mark <fn set>
+function mark <fn main>
+function mark <script>
+function blacken <script>
+string mark globalSet
+string mark globalGet
+string mark main
+string blacken main
+string blacken globalGet
+string blacken globalSet
+function blacken <fn main>
+string mark initial
+string blacken initial
+function blacken <fn set>
+string mark set
+string blacken set
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 27676 to 27676) next at 55352
+-- gc begin
+string mark clock
+native mark <native fn>
+function mark <fn set>
+function mark <fn main>
+function mark <script>
+function blacken <script>
+string mark globalSet
+string mark globalGet
+string mark main
+string blacken main
+string blacken globalGet
+string blacken globalSet
+function blacken <fn main>
+string mark initial
+string blacken initial
+function blacken <fn set>
+string mark set
+string blacken set
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 27716 to 27716) next at 55432
+allocate 40 for string
+[set] self.capacity: 8
+-- gc begin
+string mark updated
+string mark clock
+native mark <native fn>
+function mark <fn set>
+function mark <fn main>
+function mark <script>
+function blacken <script>
+string mark globalSet
+string mark globalGet
+string mark main
+string blacken main
+string blacken globalGet
+string blacken globalSet
+function blacken <fn main>
+string mark initial
+string blacken initial
+function blacken <fn set>
+string mark set
+string blacken set
+native blacken <native fn>
+string blacken clock
+string blacken updated
+-- gc end
+   collected 0 bytes (from 28100 to 28100) next at 56200
+-- gc begin
+string mark updated
+string mark clock
+native mark <native fn>
+function mark <fn set>
+function mark <fn main>
+function mark <script>
+function blacken <script>
+string mark globalSet
+string mark globalGet
+string mark main
+string blacken main
+string blacken globalGet
+string blacken globalSet
+function blacken <fn main>
+string mark initial
+string blacken initial
+function blacken <fn set>
+string mark set
+string blacken set
+native blacken <native fn>
+string blacken clock
+string blacken updated
+-- gc end
+   collected 0 bytes (from 28228 to 28228) next at 56456
+-- gc begin
+string mark clock
+native mark <native fn>
+function mark <fn set>
+function mark <fn main>
+function mark <script>
+function blacken <script>
+string mark globalSet
+string mark globalGet
+string mark main
+string blacken main
+string blacken globalGet
+string blacken globalSet
+function blacken <fn main>
+string mark initial
+string blacken initial
+function blacken <fn set>
+string mark set
+string mark updated
+string blacken updated
+string blacken set
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 28236 to 28236) next at 56472
+-- gc begin
+string mark clock
+native mark <native fn>
+function mark <fn set>
+function mark <fn main>
+function mark <script>
+function blacken <script>
+string mark globalSet
+string mark globalGet
+string mark main
+string blacken main
+string blacken globalGet
+string blacken globalSet
+function blacken <fn main>
+string mark initial
+string blacken initial
+function blacken <fn set>
+string mark set
+string mark updated
+string blacken updated
+string blacken set
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 28268 to 28268) next at 56536
+-- gc begin
+string mark clock
+native mark <native fn>
+function mark <fn main>
+function mark <script>
+function blacken <script>
+string mark globalSet
+string mark globalGet
+string mark main
+string blacken main
+string blacken globalGet
+string blacken globalSet
+function blacken <fn main>
+string mark initial
+function mark <fn set>
+function blacken <fn set>
+string mark set
+string mark updated
+string blacken updated
+string blacken set
+string blacken initial
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 37004 to 37004) next at 74008
+-- gc begin
+string mark clock
+native mark <native fn>
+function mark <fn main>
+function mark <script>
+function blacken <script>
+string mark globalSet
+string mark globalGet
+string mark main
+string blacken main
+string blacken globalGet
+string blacken globalSet
+function blacken <fn main>
+string mark initial
+function mark <fn set>
+function blacken <fn set>
+string mark set
+string mark updated
+string blacken updated
+string blacken set
+string blacken initial
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 37124 to 37124) next at 74248
+allocate 120 for function
+-- gc begin
+string mark clock
+native mark <native fn>
+function mark <script>
+function mark <fn main>
+function mark <script>
+function blacken <script>
+string mark globalSet
+string mark globalGet
+string mark main
+string blacken main
+string blacken globalGet
+string blacken globalSet
+function blacken <fn main>
+string mark initial
+function mark <fn set>
+function blacken <fn set>
+string mark set
+string mark updated
+string blacken updated
+string blacken set
+string blacken initial
+function blacken <script>
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 37127 to 37127) next at 74254
+-- gc begin
+string mark clock
+native mark <native fn>
+function mark <script>
+function mark <fn main>
+function mark <script>
+function blacken <script>
+string mark globalSet
+string mark globalGet
+string mark main
+string blacken main
+string blacken globalGet
+string blacken globalSet
+function blacken <fn main>
+string mark initial
+function mark <fn set>
+function blacken <fn set>
+string mark set
+string mark updated
+string blacken updated
+string blacken set
+string blacken initial
+function blacken <script>
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 37167 to 37167) next at 74334
+allocate 40 for string
+[set] self.capacity: 16
+-- gc begin
+string mark clock
+native mark <native fn>
+function mark <fn get>
+function mark <fn main>
+function mark <script>
+function blacken <script>
+string mark globalSet
+string mark globalGet
+string mark main
+string blacken main
+string blacken globalGet
+string blacken globalSet
+function blacken <fn main>
+string mark initial
+function mark <fn set>
+function blacken <fn set>
+string mark set
+string mark updated
+string blacken updated
+string blacken set
+string blacken initial
+function blacken <fn get>
+string mark get
+string blacken get
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 37175 to 37175) next at 74350
+-- gc begin
+string mark clock
+native mark <native fn>
+function mark <fn get>
+function mark <fn main>
+function mark <script>
+function blacken <script>
+string mark globalSet
+string mark globalGet
+string mark main
+string blacken main
+string blacken globalGet
+string blacken globalSet
+function blacken <fn main>
+string mark initial
+function mark <fn set>
+function blacken <fn set>
+string mark set
+string mark updated
+string blacken updated
+string blacken set
+string blacken initial
+function blacken <fn get>
+string mark get
+string blacken get
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 37207 to 37207) next at 74414
+-- gc begin
+string mark clock
+native mark <native fn>
+function mark <fn main>
+function mark <script>
+function blacken <script>
+string mark globalSet
+string mark globalGet
+string mark main
+string blacken main
+string blacken globalGet
+string blacken globalSet
+function blacken <fn main>
+string mark initial
+function mark <fn set>
+function mark <fn get>
+function blacken <fn get>
+string mark get
+string blacken get
+function blacken <fn set>
+string mark set
+string mark updated
+string blacken updated
+string blacken set
+string blacken initial
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 37215 to 37215) next at 74430
+-- gc begin
+string mark clock
+native mark <native fn>
+function mark <fn main>
+function mark <script>
+function blacken <script>
+string mark globalSet
+string mark globalGet
+string mark main
+string blacken main
+string blacken globalGet
+string blacken globalSet
+function blacken <fn main>
+string mark initial
+function mark <fn set>
+function mark <fn get>
+function blacken <fn get>
+string mark get
+string blacken get
+function blacken <fn set>
+string mark set
+string mark updated
+string blacken updated
+string blacken set
+string blacken initial
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 37247 to 37247) next at 74494
+-- gc begin
+string mark clock
+native mark <native fn>
+function mark <fn main>
+function mark <script>
+function blacken <script>
+string mark globalSet
+string mark globalGet
+string mark main
+string blacken main
+string blacken globalGet
+string blacken globalSet
+function blacken <fn main>
+string mark initial
+function mark <fn set>
+function mark <fn get>
+function blacken <fn get>
+string mark get
+string blacken get
+function blacken <fn set>
+string mark set
+string mark updated
+string blacken updated
+string blacken set
+string blacken initial
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 37263 to 37263) next at 74526
+-- gc begin
+string mark clock
+native mark <native fn>
+function mark <fn main>
+function mark <script>
+function blacken <script>
+string mark globalSet
+string mark globalGet
+string mark main
+string blacken main
+string blacken globalGet
+string blacken globalSet
+function blacken <fn main>
+string mark initial
+function mark <fn set>
+function mark <fn get>
+function blacken <fn get>
+string mark get
+string blacken get
+function blacken <fn set>
+string mark set
+string mark updated
+string blacken updated
+string blacken set
+string blacken initial
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 37327 to 37327) next at 74654
+-- gc begin
+string mark clock
+native mark <native fn>
+function mark <script>
+function blacken <script>
+string mark globalSet
+string mark globalGet
+string mark main
+function mark <fn main>
+function blacken <fn main>
+string mark initial
+function mark <fn set>
+function mark <fn get>
+function blacken <fn get>
+string mark get
+string blacken get
+function blacken <fn set>
+string mark set
+string mark updated
+string blacken updated
+string blacken set
+string blacken initial
+string blacken main
+string blacken globalGet
+string blacken globalSet
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 37335 to 37335) next at 74670
+-- gc begin
+string mark clock
+native mark <native fn>
+function mark <script>
+function blacken <script>
+string mark globalSet
+string mark globalGet
+string mark main
+function mark <fn main>
+function blacken <fn main>
+string mark initial
+function mark <fn set>
+function mark <fn get>
+function blacken <fn get>
+string mark get
+string blacken get
+function blacken <fn set>
+string mark set
+string mark updated
+string blacken updated
+string blacken set
+string blacken initial
+string blacken main
+string blacken globalGet
+string blacken globalSet
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 37367 to 37367) next at 74734
+-- gc begin
+string mark clock
+native mark <native fn>
+function mark <script>
+function blacken <script>
+string mark globalSet
+string mark globalGet
+string mark main
+function mark <fn main>
+function blacken <fn main>
+string mark initial
+function mark <fn set>
+function mark <fn get>
+function blacken <fn get>
+string mark get
+string blacken get
+function blacken <fn set>
+string mark set
+string mark updated
+string blacken updated
+string blacken set
+string blacken initial
+string blacken main
+string blacken globalGet
+string blacken globalSet
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 37383 to 37383) next at 74766
+-- gc begin
+string mark clock
+native mark <native fn>
+function mark <script>
+function blacken <script>
+string mark globalSet
+string mark globalGet
+string mark main
+function mark <fn main>
+function blacken <fn main>
+string mark initial
+function mark <fn set>
+function mark <fn get>
+function blacken <fn get>
+string mark get
+string blacken get
+function blacken <fn set>
+string mark set
+string mark updated
+string blacken updated
+string blacken set
+string blacken initial
+string blacken main
+string blacken globalGet
+string blacken globalSet
+native blacken <native fn>
+string blacken clock
+-- gc end
+   collected 0 bytes (from 37447 to 37447) next at 74894
+-- gc begin
+function mark <script>
+string mark clock
+native mark <native fn>
+native blacken <native fn>
+string blacken clock
+function blacken <script>
+string mark globalSet
+string mark globalGet
+string mark main
+function mark <fn main>
+function blacken <fn main>
+string mark initial
+function mark <fn set>
+function mark <fn get>
+function blacken <fn get>
+string mark get
+string blacken get
+function blacken <fn set>
+string mark set
+string mark updated
+string blacken updated
+string blacken set
+string blacken initial
+string blacken main
+string blacken globalGet
+string blacken globalSet
+-- gc end
+   collected 0 bytes (from 37495 to 37495) next at 74990
+allocate 48 for closure
+[set] self.capacity: 8
+[set] self.capacity: 8
+-- gc begin
+closure mark <script>
+string mark globalGet
+string mark clock
+native mark <native fn>
+string mark globalSet
+string blacken globalSet
+native blacken <native fn>
+string blacken clock
+string blacken globalGet
+closure blacken <script>
+function mark <script>
+function blacken <script>
+string mark main
+function mark <fn main>
+function blacken <fn main>
+string mark initial
+function mark <fn set>
+function mark <fn get>
+function blacken <fn get>
+string mark get
+string blacken get
+function blacken <fn set>
+string mark set
+string mark updated
+string blacken updated
+string blacken set
+string blacken initial
+string blacken main
+-- gc end
+   collected 0 bytes (from 37543 to 37543) next at 75086
+allocate 48 for closure
+[set] self.capacity: 8
+-- gc begin
+closure mark <script>
+closure mark <fn main>
+string mark initial
+string mark main
+string mark globalGet
+string mark clock
+native mark <native fn>
+string mark globalSet
+string blacken globalSet
+native blacken <native fn>
+string blacken clock
+string blacken globalGet
+string blacken main
+string blacken initial
+closure blacken <fn main>
+function mark <fn main>
+function blacken <fn main>
+function mark <fn set>
+function mark <fn get>
+function blacken <fn get>
+string mark get
+string blacken get
+function blacken <fn set>
+string mark set
+string mark updated
+string blacken updated
+string blacken set
+closure blacken <script>
+function mark <script>
+function blacken <script>
+-- gc end
+   collected 0 bytes (from 37551 to 37551) next at 75102
+-- gc begin
+closure mark <script>
+closure mark <fn main>
+string mark initial
+string mark main
+string mark globalGet
+string mark clock
+native mark <native fn>
+string mark globalSet
+string blacken globalSet
+native blacken <native fn>
+string blacken clock
+string blacken globalGet
+string blacken main
+string blacken initial
+closure blacken <fn main>
+function mark <fn main>
+function blacken <fn main>
+function mark <fn set>
+function mark <fn get>
+function blacken <fn get>
+string mark get
+string blacken get
+function blacken <fn set>
+string mark set
+string mark updated
+string blacken updated
+string blacken set
+closure blacken <script>
+function mark <script>
+function blacken <script>
+-- gc end
+   collected 0 bytes (from 37599 to 37599) next at 75198
+allocate 48 for closure
+-- gc begin
+closure mark <script>
+closure mark <fn main>
+string mark initial
+closure mark <fn set>
+string mark main
+string mark globalGet
+string mark clock
+native mark <native fn>
+string mark globalSet
+string blacken globalSet
+native blacken <native fn>
+string blacken clock
+string blacken globalGet
+string blacken main
+closure blacken <fn set>
+function mark <fn set>
+function blacken <fn set>
+string mark set
+string mark updated
+string blacken updated
+string blacken set
+string blacken initial
+closure blacken <fn main>
+function mark <fn main>
+function blacken <fn main>
+function mark <fn get>
+function blacken <fn get>
+string mark get
+string blacken get
+closure blacken <script>
+function mark <script>
+function blacken <script>
+-- gc end
+   collected 0 bytes (from 37647 to 37647) next at 75294
+allocate 48 for upvalue
+-- gc begin
+closure mark <script>
+closure mark <fn main>
+string mark initial
+closure mark <fn set>
+upvalue mark upvalue
+string mark main
+string mark globalGet
+string mark clock
+native mark <native fn>
+string mark globalSet
+string blacken globalSet
+native blacken <native fn>
+string blacken clock
+string blacken globalGet
+string blacken main
+upvalue blacken upvalue
+closure blacken <fn set>
+function mark <fn set>
+function blacken <fn set>
+string mark set
+string mark updated
+string blacken updated
+string blacken set
+string blacken initial
+closure blacken <fn main>
+function mark <fn main>
+function blacken <fn main>
+function mark <fn get>
+function blacken <fn get>
+string mark get
+string blacken get
+closure blacken <script>
+function mark <script>
+function blacken <script>
+-- gc end
+   collected 0 bytes (from 37655 to 37655) next at 75310
+-- gc begin
+closure mark <script>
+closure mark <fn main>
+string mark initial
+closure mark <fn set>
+upvalue mark upvalue
+string mark main
+string mark globalGet
+string mark clock
+native mark <native fn>
+string mark globalSet
+string blacken globalSet
+native blacken <native fn>
+string blacken clock
+string blacken globalGet
+string blacken main
+upvalue blacken upvalue
+closure blacken <fn set>
+function mark <fn set>
+function blacken <fn set>
+string mark set
+string mark updated
+string blacken updated
+string blacken set
+string blacken initial
+closure blacken <fn main>
+function mark <fn main>
+function blacken <fn main>
+function mark <fn get>
+function blacken <fn get>
+string mark get
+string blacken get
+closure blacken <script>
+function mark <script>
+function blacken <script>
+-- gc end
+   collected 0 bytes (from 37703 to 37703) next at 75406
+allocate 48 for closure
+[set] self.capacity: 8
+[set] self.capacity: 8
+freeing type: closure
+freeing type: upvalue
+freeing type: closure
+freeing type: closure
+freeing type: closure
+freeing type: string
+freeing type: function
+freeing type: string
+freeing type: string
+freeing type: function
+freeing type: string
+freeing type: function
+freeing type: string
+freeing type: string
+freeing type: string
+freeing type: function
+freeing type: native
+freeing type: string
+error(gpa): memory address 0x7fe473d43000 leaked: 
+/workspaces/zig-lox/src/memory.zig:86:46: 0x1093ed9 in create__anon_4495 (zig-lox)
+        const obj = try self.allocator.create(T);
+                                             ^
+/workspaces/zig-lox/src/compiler.zig:667:65: 0x1094028 in init (zig-lox)
+        const compiler: *Compiler = try main.vm.allocator.create(Compiler);
+                                                                ^
+/workspaces/zig-lox/src/vm.zig:104:30: 0x109ae7d in interpret (zig-lox)
+        try cmp.Compiler.init(self, .Script);
+                             ^
+/workspaces/zig-lox/src/main.zig:117:36: 0x109b60a in runFile (zig-lox)
+    const result = try vm.interpret(file_bytes);
+                                   ^
+/workspaces/zig-lox/src/main.zig:58:20: 0x109d2bd in main (zig-lox)
+        try runFile(p);
+                   ^
+/opt/zig/lib/std/start.zig:524:37: 0x108f865 in posixCallMainAndExit (zig-lox)
+            const result = root.main() catch |err| {
+                                    ^
+
+error(gpa): memory address 0x7fe473d20000 leaked: 
+/workspaces/zig-lox/src/memory.zig:86:46: 0x1093ed9 in create__anon_4495 (zig-lox)
+        const obj = try self.allocator.create(T);
+                                             ^
+/workspaces/zig-lox/src/compiler.zig:667:65: 0x1094028 in init (zig-lox)
+        const compiler: *Compiler = try main.vm.allocator.create(Compiler);
+                                                                ^
+/workspaces/zig-lox/src/compiler.zig:428:26: 0x10e3d47 in function (zig-lox)
+        try Compiler.init(main.vm, function_type);
+                         ^
+/workspaces/zig-lox/src/compiler.zig:315:26: 0x10abad1 in funDeclaration (zig-lox)
+        try self.function(FunctionType.Function);
+                         ^
+/workspaces/zig-lox/src/compiler.zig:321:36: 0x1094703 in declaration (zig-lox)
+            try self.funDeclaration();
+                                   ^
+/workspaces/zig-lox/src/compiler.zig:710:35: 0x109446f in compile (zig-lox)
+            try parser.declaration();
+                                  ^
+
+error(gpa): memory address 0x7fe473d1d000 leaked: 
+/workspaces/zig-lox/src/memory.zig:86:46: 0x1093ed9 in create__anon_4495 (zig-lox)
+        const obj = try self.allocator.create(T);
+                                             ^
+/workspaces/zig-lox/src/compiler.zig:667:65: 0x1094028 in init (zig-lox)
+        const compiler: *Compiler = try main.vm.allocator.create(Compiler);
+                                                                ^
+/workspaces/zig-lox/src/compiler.zig:428:26: 0x10e3d47 in function (zig-lox)
+        try Compiler.init(main.vm, function_type);
+                         ^
+/workspaces/zig-lox/src/compiler.zig:315:26: 0x10abad1 in funDeclaration (zig-lox)
+        try self.function(FunctionType.Function);
+                         ^
+/workspaces/zig-lox/src/compiler.zig:321:36: 0x1094703 in declaration (zig-lox)
+            try self.funDeclaration();
+                                   ^
+/workspaces/zig-lox/src/compiler.zig:189:33: 0x10ab39f in block (zig-lox)
+            try self.declaration();
+                                ^
+
+error(gpa): memory address 0x7fe473d19000 leaked: 
+/workspaces/zig-lox/src/memory.zig:86:46: 0x1093ed9 in create__anon_4495 (zig-lox)
+        const obj = try self.allocator.create(T);
+                                             ^
+/workspaces/zig-lox/src/compiler.zig:667:65: 0x1094028 in init (zig-lox)
+        const compiler: *Compiler = try main.vm.allocator.create(Compiler);
+                                                                ^
+/workspaces/zig-lox/src/compiler.zig:428:26: 0x10e3d47 in function (zig-lox)
+        try Compiler.init(main.vm, function_type);
+                         ^
+/workspaces/zig-lox/src/compiler.zig:315:26: 0x10abad1 in funDeclaration (zig-lox)
+        try self.function(FunctionType.Function);
+                         ^
+/workspaces/zig-lox/src/compiler.zig:321:36: 0x1094703 in declaration (zig-lox)
+            try self.funDeclaration();
+                                   ^
+/workspaces/zig-lox/src/compiler.zig:189:33: 0x10ab39f in block (zig-lox)
+            try self.declaration();
+                                ^
+
+run
++- run zig-lox failure
+error: the following command exited with error code 1:
+/workspaces/zig-lox/.zig-cache/o/1cdf107c3e3dffd9084ff5eceadff1b1/zig-lox test.lox 
+Build Summary: 2/4 steps succeeded; 1 failed (disable with --summary none)
+run transitive failure
++- run zig-lox failure
+error: the following build command failed with exit code 1:
+/workspaces/zig-lox/.zig-cache/o/f28594b6a39e3c2eacdf6d07570e1557/build /opt/zig/zig /workspaces/zig-lox /workspaces/zig-lox/.zig-cache /root/.cache/zig --seed 0xd8ee6217 -Z0ef5ab6ba7945d73 run -Dstress -Dgclog -- test.lox

@@ -50,8 +50,7 @@ pub const VM = struct {
         }} ** FRAMES_MAX;
         var vm_allocator = memory.VMAllocator.init(allocator);
 
-        const v = try vm_allocator.create(VM);
-        v.* = VM{
+        var v = VM{
             .allocator = &vm_allocator,
             .stack = stack,
             .stack_top = 0,
@@ -67,19 +66,19 @@ pub const VM = struct {
             .gray_stack = &[_]?*obj.Obj{},
         };
 
-        vm_allocator.vm = v;
+        vm_allocator.vm = &v;
 
-        // print("[vm.init] v.*.stack[0]: {any}\n", .{v.*.stack[0]});
+        // v.globals.count = 0;
         try v.defineNative("clock", clockNative);
 
-        return v;
+        return &v;
     }
 
     pub fn free(self: *VM) void {
         self.freeObjects();
         self.strings.free();
         self.globals.free();
-        self.allocator.destroy(self);
+        // self.allocator.destroy(self);
     }
 
     pub fn resetStack(self: *VM) void {
@@ -413,8 +412,8 @@ pub const VM = struct {
     }
 
     fn concatenate(self: *VM) !void {
-        const b = self.pop().asString();
-        const a = self.pop().asString();
+        const b = self.peek(0).asString();
+        const a = self.peek(1).asString();
 
         const length = a.chars.len + b.chars.len;
         var chars = self.allocator.reallocate(u8, null, length);
@@ -422,6 +421,8 @@ pub const VM = struct {
         @memcpy(chars[a.chars.len..length], b.chars);
 
         const result = try obj.takeString(self, chars);
+        _ = self.pop();
+        _ = self.pop();
         self.push(Value.object(&result.obj));
     }
 

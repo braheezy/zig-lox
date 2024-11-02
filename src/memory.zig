@@ -12,14 +12,19 @@ const Value = @import("value.zig").Value;
 const ValueArray = @import("value.zig").ValueArray;
 const printValue = @import("value.zig").printValue;
 const VM = @import("vm.zig").VM;
+const GC_HEAP_GROW_FACTOR = 2;
 pub const VMAllocator = struct {
     allocator: *std.mem.Allocator,
     vm: ?*VM,
+    bytes_allocated: usize,
+    next_gc: usize,
 
     pub fn init(allocator: *std.mem.Allocator) VMAllocator {
         return VMAllocator{
             .allocator = allocator,
             .vm = null,
+            .bytes_allocated = 0,
+            .next_gc = 1024 * 1024,
         };
     }
 
@@ -29,7 +34,18 @@ pub const VMAllocator = struct {
         old_mem: ?[]T,
         new_size: usize,
     ) []T {
-        // if (new_size != 0) if (main.DEBUG_STRESS_GC) self.collectGarbage();
+        var old_bytes: usize = 0;
+        if (old_mem) |mem| {
+            old_bytes = @sizeOf(T) * mem.len;
+        }
+
+        const new_bytes = @sizeOf(T) * new_size;
+        self.bytes_allocated += new_bytes - old_bytes;
+
+        if (new_size != 0) {
+            if (main.DEBUG_STRESS_GC) self.collectGarbage();
+            if (self.bytes_allocated > self.next_gc) self.collectGarbage();
+        }
 
         if (old_mem) |mem| {
             // std.debug.print("[reallocate] --> realloc\n", .{});
@@ -40,7 +56,6 @@ pub const VMAllocator = struct {
             return new_array;
         } else {
             // std.debug.print("[reallocate] --> alloc\n", .{});
-            if (main.DEBUG_STRESS_GC) self.collectGarbage();
             const new_array = self.allocator.alloc(T, new_size) catch {
                 std.debug.print("Failed to allocate memory!", .{});
                 std.process.exit(1);
@@ -65,9 +80,11 @@ pub const VMAllocator = struct {
 
     pub fn create(self: *VMAllocator, comptime T: type) !*T {
         // std.debug.print("[create] {any}\n", .{T});
+        self.bytes_allocated += @sizeOf(T);
         if (main.DEBUG_STRESS_GC) self.collectGarbage();
 
         const obj = try self.allocator.create(T);
+
         return obj;
     }
 
@@ -84,6 +101,8 @@ pub const VMAllocator = struct {
     pub fn collectGarbage(self: *VMAllocator) void {
         if (main.DEBUG_LOG_GC) std.debug.print("-- gc begin\n", .{});
 
+        const before = self.bytes_allocated;
+
         self.markRoots();
         // if (self.vm) |vm| std.debug.print("[collectGarbage] gray stack after marking: {any}\n", .{vm.gray_stack});
         self.traceReferences();
@@ -93,7 +112,17 @@ pub const VMAllocator = struct {
         }
         self.sweep();
 
-        if (main.DEBUG_LOG_GC) std.debug.print("-- gc end\n", .{});
+        self.next_gc = self.bytes_allocated * GC_HEAP_GROW_FACTOR;
+
+        if (main.DEBUG_LOG_GC) {
+            std.debug.print("-- gc end\n", .{});
+            std.debug.print("   collected {d} bytes (from {d} to {d}) next at {d}\n", .{
+                before - self.bytes_allocated,
+                before,
+                self.bytes_allocated,
+                self.next_gc,
+            });
+        }
     }
 
     fn traceReferences(self: *VMAllocator) void {

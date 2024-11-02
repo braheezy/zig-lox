@@ -665,24 +665,7 @@ pub const Compiler = struct {
     pub fn init(vm: *VM, func_type: FunctionType) !void {
         // print("[compiler.init] func_type: {s}\n", .{@tagName(func_type)});
         const compiler: *Compiler = try main.vm.allocator.create(Compiler);
-        // const compiler = try vm.allocator.create(Compiler);
-        // compiler.* = Compiler{
-        //     .enclosing = current_compiler,
-        //     .scope_depth = 0,
-        //     .local_count = 0,
-        //     .locals = [_]Local{.{
-        //         .name = undefined,
-        //         .depth = 0,
-        //         .is_captured = false,
-        //     }} ** UINT8_COUNT,
-        //     .upvalues = [_]Upvalue{.{
-        //         .index = 0,
-        //         .is_local = false,
-        //     }} ** UINT8_COUNT,
-        //     .function = try obj.newFunction(vm),
-        //     .func_type = func_type,
-        //     .vm_allocator = vm.allocator,
-        // };
+
         compiler.enclosing = current_compiler;
         compiler.function = try obj.newFunction(vm);
         compiler.func_type = func_type;
