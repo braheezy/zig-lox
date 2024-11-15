@@ -248,6 +248,18 @@ pub const VM = struct {
                         }
                     }
                 },
+                .INHERIT => {
+                    const superclass = self.peek(1);
+                    if (!superclass.isClass()) {
+                        self.runtimeError("Superclass must be a class.", .{});
+                        return .INTERPRET_RUNTIME_ERROR;
+                    }
+                    const subclass = self.peek(0).asClass();
+
+                    Table.setAll(superclass.asClass().methods, subclass.methods);
+
+                    _ = self.pop();
+                },
                 .METHOD => {
                     self.defineMethod(self.readString());
                 },
@@ -267,6 +279,22 @@ pub const VM = struct {
                     const arg_count = self.readByte();
                     const invoke_success = try self.invoke(method, arg_count);
                     if (!invoke_success) {
+                        return .INTERPRET_RUNTIME_ERROR;
+                    }
+                },
+                .GET_SUPER => {
+                    const name = self.readString();
+                    const superclass = self.pop().asClass();
+                    const successful_bind = try self.bindMethod(superclass, name);
+                    if (!successful_bind) {
+                        return .INTERPRET_RUNTIME_ERROR;
+                    }
+                },
+                .SUPER_INVOKE => {
+                    const method = self.readString();
+                    const arg_count = self.readByte();
+                    const superclass = self.pop().asClass();
+                    if (self.invokeFromClass(superclass, method, arg_count)) {
                         return .INTERPRET_RUNTIME_ERROR;
                     }
                 },

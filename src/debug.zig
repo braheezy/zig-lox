@@ -42,6 +42,8 @@ pub fn disassembleInstruction(chunk: *chk.Chunk, offset: usize) !usize {
         .SET_PROPERTY => return constantInstruction(@tagName(.SET_PROPERTY), chunk, offset),
         .METHOD => return constantInstruction(@tagName(.METHOD), chunk, offset),
         .INVOKE => return invokeInstruction(@tagName(.INVOKE), chunk, offset),
+        .GET_SUPER => return constantInstruction(@tagName(.GET_SUPER), chunk, offset),
+        .SUPER_INVOKE => return invokeInstruction(@tagName(.SUPER_INVOKE), chunk, offset),
         .CLOSURE => {
             var new_offset = offset + 1;
 

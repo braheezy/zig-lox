@@ -1,6 +1,7 @@
 const memory = @import("memory.zig");
 const value = @import("value.zig");
 const VM = @import("vm.zig").VM;
+
 pub const OpCode = enum(u8) {
     CONSTANT,
     NIL,
@@ -16,6 +17,7 @@ pub const OpCode = enum(u8) {
     SET_UPVALUE,
     GET_PROPERTY,
     SET_PROPERTY,
+    GET_SUPER,
     EQUAL,
     GREATER,
     LESS,
@@ -30,11 +32,13 @@ pub const OpCode = enum(u8) {
     LOOP,
     CALL,
     INVOKE,
+    SUPER_INVOKE,
     CLOSURE,
     CLOSE_UPVALUE,
     NOT,
     RETURN,
     CLASS,
+    INHERIT,
     METHOD,
     _,
 };
