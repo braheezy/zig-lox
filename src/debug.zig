@@ -40,6 +40,8 @@ pub fn disassembleInstruction(chunk: *chk.Chunk, offset: usize) !usize {
         .CLASS => return constantInstruction(@tagName(.CLASS), chunk, offset),
         .GET_PROPERTY => return constantInstruction(@tagName(.GET_PROPERTY), chunk, offset),
         .SET_PROPERTY => return constantInstruction(@tagName(.SET_PROPERTY), chunk, offset),
+        .METHOD => return constantInstruction(@tagName(.METHOD), chunk, offset),
+        .INVOKE => return invokeInstruction(@tagName(.INVOKE), chunk, offset),
         .CLOSURE => {
             var new_offset = offset + 1;
 
@@ -82,6 +84,13 @@ fn constantInstruction(name: []const u8, chunk: *chk.Chunk, offset: usize) !usiz
     print("'\n", .{});
 
     return offset + 2;
+}
+
+fn invokeInstruction(name: []const u8, chunk: *chk.Chunk, offset: usize) usize {
+    const constant = chunk.code[offset + 1];
+    const arg_count = chunk.code[offset + 2];
+    print("{s:<20} ({d} args) {d}\n", .{ name, arg_count, constant });
+    return offset + 3;
 }
 
 fn byteInstruction(name: []const u8, chunk: *chk.Chunk, offset: usize) usize {

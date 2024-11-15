@@ -6,6 +6,7 @@ const Value = @import("value.zig").Value;
 const VM = @import("vm.zig").VM;
 const Table = @import("table.zig").Table;
 pub const ObjType = enum(u8) {
+    bound_method,
     class,
     closure,
     function,
@@ -44,6 +45,13 @@ pub const ObjUpvalue = struct {
 pub const ObjClass = struct {
     obj: Obj,
     name: *ObjString,
+    methods: *Table,
+};
+
+pub const ObjBoundMethod = struct {
+    obj: Obj,
+    receiver: Value,
+    method: *ObjClosure,
 };
 
 pub const ObjInstance = struct {
@@ -114,6 +122,17 @@ pub fn allocateObject(vm: *VM, comptime T: type, obj_type: ObjType) std.mem.Allo
                 .function = undefined,
             };
         },
+        ObjBoundMethod => {
+            obj.* = T{
+                .obj = Obj{
+                    .obj_type = obj_type,
+                    .next = vm.objects,
+                    .is_marked = false,
+                },
+                .receiver = Value.nil(),
+                .method = undefined,
+            };
+        },
         ObjClosure => {
             obj.* = T{
                 .obj = Obj{
@@ -134,6 +153,7 @@ pub fn allocateObject(vm: *VM, comptime T: type, obj_type: ObjType) std.mem.Allo
                     .is_marked = false,
                 },
                 .name = undefined,
+                .methods = undefined,
             };
         },
         ObjInstance => {
@@ -194,6 +214,7 @@ pub fn newFunction(vm: *VM) std.mem.Allocator.Error!*ObjFunction {
 pub fn newClass(vm: *VM, name: *ObjString) !*ObjClass {
     const class: *ObjClass = try allocateObject(vm, ObjClass, .class);
     class.name = name;
+    class.methods = try Table.init(vm.allocator);
     return class;
 }
 
@@ -202,6 +223,13 @@ pub fn newInstance(vm: *VM, class: *ObjClass) !*ObjInstance {
     instance.class = class;
     instance.fields = try Table.init(vm.allocator);
     return instance;
+}
+
+pub fn newBoundMethod(vm: *VM, receiver: Value, method: *ObjClosure) !*ObjBoundMethod {
+    const bound_method: *ObjBoundMethod = try allocateObject(vm, ObjBoundMethod, .bound_method);
+    bound_method.receiver = receiver;
+    bound_method.method = method;
+    return bound_method;
 }
 
 pub fn newNative(vm: *VM, func: NativeFn) std.mem.Allocator.Error!*ObjNative {
@@ -288,7 +316,12 @@ pub fn freeObject(vm: *VM, obj: *Obj) void {
         },
         .class => {
             const obj_class: *ObjClass = @ptrCast(obj);
+            obj_class.methods.free();
             vm.allocator.destroy(obj_class);
+        },
+        .bound_method => {
+            const obj_bound_method: *ObjBoundMethod = @ptrCast(obj);
+            vm.allocator.destroy(obj_bound_method);
         },
         .instance => {
             const obj_instance: *ObjInstance = @ptrCast(obj);

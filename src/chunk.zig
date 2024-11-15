@@ -29,11 +29,13 @@ pub const OpCode = enum(u8) {
     JUMP_IF_FALSE,
     LOOP,
     CALL,
+    INVOKE,
     CLOSURE,
     CLOSE_UPVALUE,
     NOT,
     RETURN,
     CLASS,
+    METHOD,
     _,
 };
 

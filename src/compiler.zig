@@ -13,15 +13,20 @@ const DEBUG_PRINT_CODE = main.DEBUG_PRINT_CODE;
 const Token = scan.Token;
 const TokenType = scan.TokenType;
 const print = std.debug.print;
+
 pub var parser: Parser = Parser{
     .current = undefined,
     .previous = undefined,
     .had_error = false,
     .panic_mode = false,
 };
+
 pub var current_compiler: ?*Compiler = null;
 
+pub var current_class: ?*ClassCompiler = null;
+
 pub const UINT8_COUNT = std.math.maxInt(u8) + 1;
+
 const Precedence = enum(u8) {
     NONE,
     ASSIGNMENT, // =
@@ -59,6 +64,8 @@ const Upvalue = struct {
 
 const FunctionType = enum(u8) {
     Function,
+    Initializer,
+    Method,
     Script,
 };
 
@@ -101,7 +108,7 @@ fn getRule(token_type: TokenType) ParseRule {
         .PRINT => makeRule(null, null, .NONE),
         .RETURN => makeRule(null, null, .NONE),
         .SUPER => makeRule(null, null, .NONE),
-        .THIS => makeRule(null, null, .NONE),
+        .THIS => makeRule(Parser.this, null, .NONE),
         .TRUE => makeRule(Parser.literal, null, .NONE),
         .VAR => makeRule(null, null, .NONE),
         .WHILE => makeRule(null, null, .NONE),
@@ -245,6 +252,9 @@ const Parser = struct {
         if (self.match(.SEMICOLON)) {
             current_compiler.?.emitReturn();
         } else {
+            if (current_compiler.?.func_type == .Initializer) {
+                self.err("Can't return a value from an initializer.");
+            }
             self.expression();
             self.consume(.SEMICOLON, "Expect ';' after return value;");
             current_compiler.?.emitByte(@intFromEnum(OpCode.RETURN));
@@ -316,21 +326,55 @@ const Parser = struct {
         current_compiler.?.defineVariable(global);
     }
 
-    fn classDeclaration(self: *Parser) void {
+    fn this(self: *Parser, can_assign: bool) void {
+        _ = can_assign;
+        if (current_class) |_| {} else {
+            self.err("Can't use 'this' outside of a class.");
+            return;
+        }
+        self.variable(false);
+    }
+
+    fn classDeclaration(self: *Parser) !void {
         self.consume(.IDENTIFIER, "Expect class name.");
+        var className = self.previous;
         const name_constant = identifierConstant(&self.previous);
         self.declareVariable();
 
         current_compiler.?.emitBytes(@intFromEnum(OpCode.CLASS), name_constant);
         current_compiler.?.defineVariable(name_constant);
 
+        var class_compiler = try main.vm.allocator.create(ClassCompiler);
+        // ? Is this right?
+        defer main.vm.allocator.destroy(class_compiler);
+        class_compiler.enclosing = current_class;
+        current_class = class_compiler;
+
+        self.namedVariable(&className, false);
         self.consume(.LEFT_BRACE, "Expect '{' before class body.");
+        while (!self.check(.RIGHT_BRACE) and !self.check(.EOF)) {
+            try self.method();
+        }
         self.consume(.RIGHT_BRACE, "Expect '}' after class body.");
+        current_compiler.?.emitByte(@intFromEnum(OpCode.POP));
+
+        current_class = current_class.?.enclosing;
+    }
+
+    fn method(self: *Parser) !void {
+        self.consume(.IDENTIFIER, "Expect method name.");
+        const constant = identifierConstant(&self.previous);
+        var funcType = FunctionType.Method;
+        if (std.mem.eql(u8, self.previous.start, "init")) {
+            funcType = .Initializer;
+        }
+        try self.function(funcType);
+        current_compiler.?.emitBytes(@intFromEnum(OpCode.METHOD), constant);
     }
 
     fn declaration(self: *Parser) std.mem.Allocator.Error!void {
         if (self.match(.CLASS)) {
-            self.classDeclaration();
+            try self.classDeclaration();
         } else if (self.match(.FUN)) {
             try self.funDeclaration();
         } else if (self.match(.VAR)) {
@@ -580,6 +624,10 @@ const Parser = struct {
         if (can_assign and self.match(.EQUAL)) {
             self.expression();
             current_compiler.?.emitBytes(@intFromEnum(OpCode.SET_PROPERTY), name);
+        } else if (self.match(.LEFT_PAREN)) {
+            const arg_count = self.argumentList();
+            current_compiler.?.emitBytes(@intFromEnum(OpCode.INVOKE), name);
+            current_compiler.?.emitByte(arg_count);
         } else {
             current_compiler.?.emitBytes(@intFromEnum(OpCode.GET_PROPERTY), name);
         }
@@ -708,7 +756,11 @@ pub const Compiler = struct {
         const local = &current_compiler.?.locals[0];
         current_compiler.?.local_count += 1;
         local.depth = 0;
-        local.name.start = "";
+        if (func_type != .Function) {
+            local.name.start = "this";
+        } else {
+            local.name.start = "";
+        }
     }
 
     pub fn compile(self: *Compiler, source: [:0]u8) !?*obj.ObjFunction {
@@ -842,7 +894,12 @@ pub const Compiler = struct {
     }
 
     fn emitReturn(self: *Compiler) void {
-        self.emitByte(@intFromEnum(OpCode.NIL));
+        if (self.func_type == .Initializer) {
+            self.emitBytes(@intFromEnum(OpCode.GET_LOCAL), 0);
+        } else {
+            self.emitByte(@intFromEnum(OpCode.NIL));
+        }
+
         self.emitByte(@intFromEnum(OpCode.RETURN));
     }
 
@@ -899,6 +956,10 @@ pub const Compiler = struct {
     pub fn emitByte(self: *Compiler, byte: u8) void {
         self.currentChunk().write(self.vm_allocator, byte, parser.previous.line);
     }
+};
+
+pub const ClassCompiler = struct {
+    enclosing: ?*ClassCompiler,
 };
 
 pub fn markCompilerRoots() void {

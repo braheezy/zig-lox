@@ -187,9 +187,15 @@ pub const VMAllocator = struct {
                 }
                 self.markArray(&function.chunk.constants);
             },
+            .bound_method => {
+                const bound_method: *obj.ObjBoundMethod = @ptrCast(object);
+                self.markValue(bound_method.receiver);
+                self.markObject(&bound_method.method.obj);
+            },
             .class => {
                 const class: *obj.ObjClass = @ptrCast(object);
                 self.markObject(&class.name.obj);
+                self.markTable(class.methods);
             },
             .instance => {
                 const instance: *obj.ObjInstance = @ptrCast(object);
@@ -228,6 +234,7 @@ pub const VMAllocator = struct {
             }
             self.markTable(vm.globals);
             markCompilerRoots();
+            self.markObject(&vm.init_string.?.obj);
         }
     }
 

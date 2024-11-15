@@ -59,6 +59,10 @@ pub const Value = union(enum) {
         return self.isObjType(.function);
     }
 
+    pub fn isBoundMethod(self: Value) bool {
+        return self.isObjType(.bound_method);
+    }
+
     pub fn isNative(self: Value) bool {
         return self.isObjType(.native);
     }
@@ -90,6 +94,10 @@ pub const Value = union(enum) {
             .number => |n| n,
             else => std.debug.panic("Value is not a number, it's: {any}", .{self}),
         };
+    }
+
+    pub fn asBoundMethod(self: Value) *obj.ObjBoundMethod {
+        return asType(obj.ObjBoundMethod, self);
     }
 
     pub fn asClass(self: Value) *obj.ObjClass {
@@ -180,6 +188,10 @@ pub fn printValue(value: Value, writer: std.fs.File.Writer) !void {
                 .function => {
                     const func = value.asFunction();
                     try func.print(writer);
+                },
+                .bound_method => {
+                    const bound_method = value.asBoundMethod();
+                    try bound_method.method.function.print(writer);
                 },
                 .native => try writer.print("<native fn>", .{}),
                 .closure => try value.asClosure().function.print(writer),
