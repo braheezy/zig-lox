@@ -72,7 +72,7 @@ fn getRule(token_type: TokenType) ParseRule {
         .LEFT_BRACE => makeRule(null, null, .NONE),
         .RIGHT_BRACE => makeRule(null, null, .NONE),
         .COMMA => makeRule(null, null, .NONE),
-        .DOT => makeRule(null, null, .NONE),
+        .DOT => makeRule(null, Parser.dot, .CALL),
         .MINUS => makeRule(Parser.unary, Parser.binary, .TERM),
         .PLUS => makeRule(null, Parser.binary, .TERM),
         .SEMICOLON => makeRule(null, null, .NONE),
@@ -316,8 +316,22 @@ const Parser = struct {
         current_compiler.?.defineVariable(global);
     }
 
+    fn classDeclaration(self: *Parser) void {
+        self.consume(.IDENTIFIER, "Expect class name.");
+        const name_constant = identifierConstant(&self.previous);
+        self.declareVariable();
+
+        current_compiler.?.emitBytes(@intFromEnum(OpCode.CLASS), name_constant);
+        current_compiler.?.defineVariable(name_constant);
+
+        self.consume(.LEFT_BRACE, "Expect '{' before class body.");
+        self.consume(.RIGHT_BRACE, "Expect '}' after class body.");
+    }
+
     fn declaration(self: *Parser) std.mem.Allocator.Error!void {
-        if (self.match(.FUN)) {
+        if (self.match(.CLASS)) {
+            self.classDeclaration();
+        } else if (self.match(.FUN)) {
             try self.funDeclaration();
         } else if (self.match(.VAR)) {
             self.varDeclaration();
@@ -557,6 +571,18 @@ const Parser = struct {
         self.parsePrecedence(.AND);
 
         current_compiler.?.patchJump(end_jump);
+    }
+
+    fn dot(self: *Parser, can_assign: bool) void {
+        self.consume(.IDENTIFIER, "Expect property name after '.'.");
+        const name = identifierConstant(&self.previous);
+
+        if (can_assign and self.match(.EQUAL)) {
+            self.expression();
+            current_compiler.?.emitBytes(@intFromEnum(OpCode.SET_PROPERTY), name);
+        } else {
+            current_compiler.?.emitBytes(@intFromEnum(OpCode.GET_PROPERTY), name);
+        }
     }
 
     fn binary(self: *Parser, can_assign: bool) void {

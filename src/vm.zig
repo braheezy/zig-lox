@@ -218,11 +218,43 @@ pub const VM = struct {
                     try printValue(self.pop(), self.writer);
                     try self.writer.writeAll("\n");
                 },
+                .CLASS => {
+                    const name = self.readString();
+                    const class = try obj.newClass(self, name);
+                    self.push(Value.object(&class.obj));
+                },
                 .CALL => {
                     const arg_count = self.readByte();
-                    if (!self.callValue(self.peek(arg_count), arg_count)) {
+                    const result = try self.callValue(self.peek(arg_count), arg_count);
+                    if (!result) {
                         return .INTERPRET_COMPILE_ERROR;
                     }
+                },
+                .GET_PROPERTY => {
+                    if (!self.peek(0).isInstance()) {
+                        self.runtimeError("Only instances have properties.", .{});
+                        return .INTERPRET_RUNTIME_ERROR;
+                    }
+                    const instance = self.peek(0).asInstance();
+                    const name = self.readString();
+                    if (instance.fields.get(name)) |value| {
+                        _ = self.pop();
+                        self.push(value.*);
+                    } else {
+                        self.runtimeError("Undefined property '{s}'.", .{name.chars});
+                        return .INTERPRET_RUNTIME_ERROR;
+                    }
+                },
+                .SET_PROPERTY => {
+                    if (!self.peek(1).isInstance()) {
+                        self.runtimeError("Only instances have fields.", .{});
+                        return .INTERPRET_RUNTIME_ERROR;
+                    }
+                    const instance = self.peek(1).asInstance();
+                    _ = instance.fields.set(self.readString(), self.peek(0));
+                    const value = self.pop();
+                    _ = self.pop();
+                    self.push(value);
                 },
                 .CLOSURE => {
                     const func = self.readConstant().asFunction();
@@ -360,9 +392,15 @@ pub const VM = struct {
         return true;
     }
 
-    fn callValue(self: *VM, callee: Value, arg_count: u8) bool {
+    fn callValue(self: *VM, callee: Value, arg_count: u8) !bool {
         if (callee.isObject()) {
             switch (callee.objType()) {
+                .class => {
+                    const class = callee.asClass();
+                    const inst = try obj.newInstance(self, class);
+                    self.stack[self.stack_top - arg_count - 1] = Value.object(&inst.obj);
+                    return true;
+                },
                 .closure => return self.call(callee.asClosure(), arg_count),
                 .native => {
                     const native = callee.asNative();

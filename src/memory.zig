@@ -2,17 +2,16 @@ const std = @import("std");
 
 const markCompilerRoots = @import("compiler.zig").markCompilerRoots;
 const main = @import("main.zig");
-const Obj = @import("object.zig").Obj;
-const ObjClosure = @import("object.zig").ObjClosure;
-const ObjFunction = @import("object.zig").ObjFunction;
-const ObjUpvalue = @import("object.zig").ObjUpvalue;
-const freeObject = @import("object.zig").freeObject;
+const obj = @import("object.zig");
+const freeObject = obj.freeObject;
 const Table = @import("table.zig").Table;
 const Value = @import("value.zig").Value;
 const ValueArray = @import("value.zig").ValueArray;
 const printValue = @import("value.zig").printValue;
 const VM = @import("vm.zig").VM;
+
 const GC_HEAP_GROW_FACTOR = 2;
+
 pub const VMAllocator = struct {
     allocator: *std.mem.Allocator,
     vm: ?*VM,
@@ -83,9 +82,7 @@ pub const VMAllocator = struct {
         self.bytes_allocated += @sizeOf(T);
         if (main.DEBUG_STRESS_GC) self.collectGarbage();
 
-        const obj = try self.allocator.create(T);
-
-        return obj;
+        return try self.allocator.create(T);
     }
 
     pub fn free(self: *VMAllocator, memory: anytype) void {
@@ -131,8 +128,8 @@ pub const VMAllocator = struct {
             while (vm.gray_count > 0) {
                 vm.gray_count -= 1;
                 const object = vm.gray_stack[vm.gray_count];
-                if (object) |obj| {
-                    self.blackenObject(obj);
+                if (object) |o| {
+                    self.blackenObject(o);
                 }
             }
         }
@@ -140,12 +137,12 @@ pub const VMAllocator = struct {
 
     fn sweep(self: *VMAllocator) void {
         if (self.vm) |vm| {
-            var previous: ?*Obj = null;
+            var previous: ?*obj.Obj = null;
             var object = vm.objects;
 
-            while (object) |obj| {
+            while (object) |o| {
                 // std.debug.print("[sweep] checking \n", .{});
-                const current = obj;
+                const current = o;
 
                 if (current.is_marked) {
                     current.is_marked = false;
@@ -167,7 +164,7 @@ pub const VMAllocator = struct {
         }
     }
 
-    fn blackenObject(self: *VMAllocator, object: *Obj) void {
+    fn blackenObject(self: *VMAllocator, object: *obj.Obj) void {
         if (main.DEBUG_LOG_GC) {
             std.debug.print("{s} blacken ", .{@tagName(object.obj_type)});
             printValue(Value.object(object), std.io.getStdErr().writer()) catch unreachable;
@@ -179,19 +176,28 @@ pub const VMAllocator = struct {
             .native => {},
             .string => {},
             .upvalue => {
-                const obj: *ObjUpvalue = @ptrCast(object);
-                self.markValue(obj.closed);
+                const upvalue: *obj.ObjUpvalue = @ptrCast(object);
+                self.markValue(upvalue.closed);
             },
             .function => {
-                const function: *ObjFunction = @ptrCast(object);
+                const function: *obj.ObjFunction = @ptrCast(object);
                 if (function.name) |name| {
                     // std.debug.print("[blackenObject] marking function: {s}\n", .{name.chars});
                     self.markObject(&name.obj);
                 }
                 self.markArray(&function.chunk.constants);
             },
+            .class => {
+                const class: *obj.ObjClass = @ptrCast(object);
+                self.markObject(&class.name.obj);
+            },
+            .instance => {
+                const instance: *obj.ObjInstance = @ptrCast(object);
+                self.markObject(&instance.class.obj);
+                self.markTable(instance.fields);
+            },
             .closure => {
-                const closure: *ObjClosure = @ptrCast(object);
+                const closure: *obj.ObjClosure = @ptrCast(object);
 
                 // std.debug.print("[blackenObject] marking closure: {s}\n", .{closure.function.name.?.chars});
                 self.markObject(&closure.function.obj);
@@ -231,9 +237,9 @@ pub const VMAllocator = struct {
         }
     }
 
-    pub fn markObject(self: *VMAllocator, obj: ?*Obj) void {
+    pub fn markObject(self: *VMAllocator, o: ?*obj.Obj) void {
         // std.debug.print("[markObject] \n", .{});
-        if (obj) |object| {
+        if (o) |object| {
             // std.debug.print("[markObject] object.is_marked {any}\n", .{object.is_marked});
             if (object.is_marked) return;
 

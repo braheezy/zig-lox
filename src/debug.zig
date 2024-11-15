@@ -37,6 +37,9 @@ pub fn disassembleInstruction(chunk: *chk.Chunk, offset: usize) !usize {
         .JUMP => return jumpInstruction(@tagName(.JUMP), 1, chunk, offset),
         .JUMP_IF_FALSE => return jumpInstruction(@tagName(.JUMP_IF_FALSE), 1, chunk, offset),
         .LOOP => return jumpInstruction(@tagName(.JUMP_IF_FALSE), -1, chunk, offset),
+        .CLASS => return constantInstruction(@tagName(.CLASS), chunk, offset),
+        .GET_PROPERTY => return constantInstruction(@tagName(.GET_PROPERTY), chunk, offset),
+        .SET_PROPERTY => return constantInstruction(@tagName(.SET_PROPERTY), chunk, offset),
         .CLOSURE => {
             var new_offset = offset + 1;
 

@@ -105,6 +105,7 @@ fn addTests(b: *std.Build, exe: *std.Build.Step.Compile, test_step: *std.Build.S
         .{ .input = "for (var i = 0; i < 3; i = i + 1) print i;\n", .expected_output = "0\n1\n2\n" },
         // File test
         .{ .input = "test/closed-upvalues-with-closures.lox", .expected_output = "updated\n", .is_file_test = true },
+        .{ .input = "test/basic-classes-and-instances.lox", .expected_output = "3\n", .is_file_test = true },
     };
 
     // Iterate over the test cases and create test steps

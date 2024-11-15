@@ -4,9 +4,12 @@ const Chunk = @import("chunk.zig").Chunk;
 const main = @import("main.zig");
 const Value = @import("value.zig").Value;
 const VM = @import("vm.zig").VM;
+const Table = @import("table.zig").Table;
 pub const ObjType = enum(u8) {
+    class,
     closure,
     function,
+    instance,
     native,
     string,
     upvalue,
@@ -36,6 +39,17 @@ pub const ObjUpvalue = struct {
     location: *Value,
     closed: Value,
     next: ?*ObjUpvalue,
+};
+
+pub const ObjClass = struct {
+    obj: Obj,
+    name: *ObjString,
+};
+
+pub const ObjInstance = struct {
+    obj: Obj,
+    class: *ObjClass,
+    fields: *Table,
 };
 
 pub const ObjFunction = struct {
@@ -112,6 +126,27 @@ pub fn allocateObject(vm: *VM, comptime T: type, obj_type: ObjType) std.mem.Allo
                 .upvalue_count = 0,
             };
         },
+        ObjClass => {
+            obj.* = T{
+                .obj = Obj{
+                    .obj_type = obj_type,
+                    .next = vm.objects,
+                    .is_marked = false,
+                },
+                .name = undefined,
+            };
+        },
+        ObjInstance => {
+            obj.* = T{
+                .obj = Obj{
+                    .obj_type = obj_type,
+                    .next = vm.objects,
+                    .is_marked = false,
+                },
+                .class = undefined,
+                .fields = undefined,
+            };
+        },
         ObjUpvalue => {
             obj.* = T{
                 .obj = Obj{
@@ -154,6 +189,19 @@ pub fn newFunction(vm: *VM) std.mem.Allocator.Error!*ObjFunction {
     var func: *ObjFunction = try allocateObject(vm, ObjFunction, .function);
     func.chunk = try Chunk.init(vm.allocator);
     return func;
+}
+
+pub fn newClass(vm: *VM, name: *ObjString) !*ObjClass {
+    const class: *ObjClass = try allocateObject(vm, ObjClass, .class);
+    class.name = name;
+    return class;
+}
+
+pub fn newInstance(vm: *VM, class: *ObjClass) !*ObjInstance {
+    const instance: *ObjInstance = try allocateObject(vm, ObjInstance, .instance);
+    instance.class = class;
+    instance.fields = try Table.init(vm.allocator);
+    return instance;
 }
 
 pub fn newNative(vm: *VM, func: NativeFn) std.mem.Allocator.Error!*ObjNative {
@@ -237,6 +285,15 @@ pub fn freeObject(vm: *VM, obj: *Obj) void {
         .upvalue => {
             const obj_upvalue: *ObjUpvalue = @ptrCast(obj);
             vm.allocator.destroy(obj_upvalue);
+        },
+        .class => {
+            const obj_class: *ObjClass = @ptrCast(obj);
+            vm.allocator.destroy(obj_class);
+        },
+        .instance => {
+            const obj_instance: *ObjInstance = @ptrCast(obj);
+            obj_instance.fields.free();
+            vm.allocator.destroy(obj_instance);
         },
     }
 }

@@ -43,6 +43,14 @@ pub const Value = union(enum) {
         return self == .none;
     }
 
+    pub fn isClass(self: Value) bool {
+        return self.isObjType(.class);
+    }
+
+    pub fn isInstance(self: Value) bool {
+        return self.isObjType(.instance);
+    }
+
     pub fn isString(self: Value) bool {
         return self.isObjType(.string);
     }
@@ -82,6 +90,14 @@ pub const Value = union(enum) {
             .number => |n| n,
             else => std.debug.panic("Value is not a number, it's: {any}", .{self}),
         };
+    }
+
+    pub fn asClass(self: Value) *obj.ObjClass {
+        return asType(obj.ObjClass, self);
+    }
+
+    pub fn asInstance(self: Value) *obj.ObjInstance {
+        return asType(obj.ObjInstance, self);
     }
 
     pub fn asType(comptime T: type, self: Value) *T {
@@ -168,6 +184,8 @@ pub fn printValue(value: Value, writer: std.fs.File.Writer) !void {
                 .native => try writer.print("<native fn>", .{}),
                 .closure => try value.asClosure().function.print(writer),
                 .upvalue => try writer.print("upvalue", .{}),
+                .class => try writer.print("{s}", .{value.asClass().name.chars}),
+                .instance => try writer.print("{s} instance", .{value.asInstance().class.name.chars}),
             }
         },
         .none => try writer.print("nil", .{}),
