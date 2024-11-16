@@ -2,141 +2,116 @@ const std = @import("std");
 
 const memory = @import("memory.zig");
 const obj = @import("object.zig");
-pub const Value = union(enum) {
+const NAN_BOXING = @import("main.zig").NAN_BOXING;
+
+const QNAN = 0b111111111111100000000000000000000000000000000000000000000000000;
+const SIGN_BIT = 0b1000000000000000000000000000000000000000000000000000000000000000;
+const TAG_NIL = 0b1;
+const TAG_FALSE = 0b10;
+const TAG_TRUE = 0b11;
+
+pub const Value = if (NAN_BOXING) NanBoxedValue else UnionValue;
+
+pub const NanBoxedValue = packed struct {
+    bits: u64,
+
+    pub fn number(value: f64) Value {
+        return Value{ .bits = @bitCast(value) };
+    }
+    pub fn asNumber(self: Value) f64 {
+        return @bitCast(self.bits);
+    }
+    pub fn isNumber(self: Value) bool {
+        return self.bits & QNAN != QNAN;
+    }
+
+    pub fn nil() Value {
+        return Value{ .bits = QNAN | TAG_NIL };
+    }
+    pub fn isNil(self: Value) bool {
+        return self.bits == nil().bits;
+    }
+
+    fn @"false"() Value {
+        return Value{ .bits = QNAN | TAG_FALSE };
+    }
+    fn @"true"() Value {
+        return Value{ .bits = QNAN | TAG_TRUE };
+    }
+    pub fn @"bool"(value: bool) Value {
+        return if (value) @"true"() else @"false"();
+    }
+    pub fn asBool(self: Value) bool {
+        return self.bits == @"true"().bits;
+    }
+    pub fn isBool(self: Value) bool {
+        return (self.bits | 1) == @"true"().bits;
+    }
+
+    pub fn object(value: *obj.Obj) Value {
+        const ptr_int: u64 = @intFromPtr(value);
+        return Value{ .bits = SIGN_BIT | QNAN | ptr_int };
+    }
+    pub fn asObject(self: Value) *obj.Obj {
+        return @ptrFromInt(self.bits & ~@as(u64, SIGN_BIT | QNAN));
+    }
+    pub fn isObject(self: Value) bool {
+        return (self.bits & (QNAN | SIGN_BIT)) == (QNAN | SIGN_BIT);
+    }
+};
+
+pub const UnionValue =
+    union(enum) {
     none,
     boolean: bool,
     number: f64,
     object: *obj.Obj,
 
-    // Constructor methods
-    pub fn @"bool"(value: bool) Value {
-        return Value{ .boolean = value };
-    }
-
     pub fn number(value: f64) Value {
         // std.debug.print("[value.number]\n", .{});
         return Value{ .number = value };
     }
-
-    pub fn object(value: *obj.Obj) Value {
-        return Value{ .object = value };
-    }
-
-    pub fn nil() Value {
-        return Value{ .none = {} };
-    }
-
-    // Type check methods
-    pub fn isBool(self: Value) bool {
-        return self == .boolean;
-    }
-
-    pub fn isNumber(self: Value) bool {
-        return self == .number;
-    }
-
-    pub fn isObject(self: Value) bool {
-        return self == .object;
-    }
-
-    pub fn isNil(self: Value) bool {
-        return self == .none;
-    }
-
-    pub fn isClass(self: Value) bool {
-        return self.isObjType(.class);
-    }
-
-    pub fn isInstance(self: Value) bool {
-        return self.isObjType(.instance);
-    }
-
-    pub fn isString(self: Value) bool {
-        return self.isObjType(.string);
-    }
-
-    pub fn isFunction(self: Value) bool {
-        return self.isObjType(.function);
-    }
-
-    pub fn isBoundMethod(self: Value) bool {
-        return self.isObjType(.bound_method);
-    }
-
-    pub fn isNative(self: Value) bool {
-        return self.isObjType(.native);
-    }
-
-    pub fn isClosure(self: Value) bool {
-        return self.isObjType(.closure);
-    }
-
-    pub fn isObjType(self: Value, target_obj_type: obj.ObjType) bool {
-        return self.isObject() and self.asObject().obj_type == target_obj_type;
-    }
-
-    // Accessor methods
-    pub fn asBool(self: Value) bool {
-        return switch (self) {
-            .boolean => |b| b,
-            else => @panic("Value is not a boolean"),
-        };
-    }
-    pub fn asObject(self: Value) *obj.Obj {
-        return switch (self) {
-            .object => |o| o,
-            else => std.debug.panic("Value is not an object, it's: {any}", .{self}),
-        };
-    }
-
     pub fn asNumber(self: Value) f64 {
         return switch (self) {
             .number => |n| n,
             else => std.debug.panic("Value is not a number, it's: {any}", .{self}),
         };
     }
-
-    pub fn asBoundMethod(self: Value) *obj.ObjBoundMethod {
-        return asType(obj.ObjBoundMethod, self);
+    pub fn isNumber(self: Value) bool {
+        return self == .number;
     }
 
-    pub fn asClass(self: Value) *obj.ObjClass {
-        return asType(obj.ObjClass, self);
+    pub fn nil() Value {
+        return Value{ .none = {} };
+    }
+    pub fn isNil(self: Value) bool {
+        return self == .none;
     }
 
-    pub fn asInstance(self: Value) *obj.ObjInstance {
-        return asType(obj.ObjInstance, self);
+    pub fn @"bool"(value: bool) Value {
+        return Value{ .boolean = value };
+    }
+    pub fn asBool(self: Value) bool {
+        return switch (self) {
+            .boolean => |b| b,
+            else => @panic("Value is not a boolean"),
+        };
+    }
+    pub fn isBool(self: Value) bool {
+        return self == .boolean;
     }
 
-    pub fn asType(comptime T: type, self: Value) *T {
-        const obj_ptr = self.asObject();
-        return @alignCast(@fieldParentPtr("obj", obj_ptr));
+    pub fn object(value: *obj.Obj) Value {
+        return Value{ .object = value };
     }
-
-    pub fn asFunction(self: Value) *obj.ObjFunction {
-        return asType(obj.ObjFunction, self);
+    pub fn isObject(self: Value) bool {
+        return self == .object;
     }
-
-    pub fn asNative(self: Value) obj.NativeFn {
-        const result = asType(obj.ObjNative, self);
-        return result.function;
-    }
-
-    pub fn asClosure(self: Value) *obj.ObjClosure {
-        return asType(obj.ObjClosure, self);
-    }
-
-    pub fn asString(self: Value) *obj.ObjString {
-        return asType(obj.ObjString, self);
-    }
-
-    pub fn asCString(self: Value) []const u8 {
-        const obj_string = self.asString();
-        return obj_string.chars;
-    }
-
-    pub fn objType(self: Value) obj.ObjType {
-        return self.asObject().obj_type;
+    pub fn asObject(self: Value) *obj.Obj {
+        return switch (self) {
+            .object => |o| o,
+            else => std.debug.panic("Value is not an object, it's: {any}", .{self}),
+        };
     }
 };
 
@@ -179,28 +154,23 @@ pub const ValueArray = struct {
 };
 
 pub fn printValue(value: Value, writer: std.fs.File.Writer) !void {
-    switch (value) {
-        .boolean => try writer.print("{s}", .{if (value.asBool()) "true" else "false"}),
-        .number => try writer.print("{d}", .{value.asNumber()}),
-        .object => {
-            switch (value.objType()) {
-                .string => try writer.print("{s}", .{value.asCString()}),
-                .function => {
-                    const func = value.asFunction();
-                    try func.print(writer);
-                },
-                .bound_method => {
-                    const bound_method = value.asBoundMethod();
-                    try bound_method.method.function.print(writer);
-                },
-                .native => try writer.print("<native fn>", .{}),
-                .closure => try value.asClosure().function.print(writer),
-                .upvalue => try writer.print("upvalue", .{}),
-                .class => try writer.print("{s}", .{value.asClass().name.chars}),
-                .instance => try writer.print("{s} instance", .{value.asInstance().class.name.chars}),
-            }
-        },
-        .none => try writer.print("nil", .{}),
+    if (NAN_BOXING) {
+        if (value.isBool()) {
+            try writer.print("{s}", .{if (value.asBool()) "true" else "false"});
+        } else if (value.isNil()) {
+            try writer.print("nil", .{});
+        } else if (value.isNumber()) {
+            try writer.print("{d}", .{value.asNumber()});
+        } else if (value.isObject()) {
+            try printObject(value, writer);
+        }
+    } else {
+        switch (value) {
+            .boolean => try writer.print("{s}", .{if (value.asBool()) "true" else "false"}),
+            .number => try writer.print("{d}", .{value.asNumber()}),
+            .object => try printObject(value, writer),
+            .none => try writer.print("nil", .{}),
+        }
     }
 }
 
@@ -221,7 +191,33 @@ pub fn toString(value: Value, allocator: *std.mem.Allocator) ![]const u8 {
     };
 }
 
+fn printObject(value: Value, writer: std.fs.File.Writer) !void {
+    switch (obj.objType(value)) {
+        .string => try writer.print("{s}", .{obj.asCString(value)}),
+        .function => {
+            const func = obj.asFunction(value);
+            try func.print(writer);
+        },
+        .bound_method => {
+            const bound_method = obj.asBoundMethod(value);
+            try bound_method.method.function.print(writer);
+        },
+        .native => try writer.print("<native fn>", .{}),
+        .closure => try obj.asClosure(value).function.print(writer),
+        .upvalue => try writer.print("upvalue", .{}),
+        .class => try writer.print("{s}", .{obj.asClass(value).name.chars}),
+        .instance => try writer.print("{s} instance", .{obj.asInstance(value).class.name.chars}),
+    }
+}
+
 pub fn valuesEqual(a: Value, b: Value) bool {
+    if (NAN_BOXING) {
+        if (a.isNumber() and b.isNumber()) {
+            return a.asNumber() == b.asNumber();
+        }
+        return a.bits == b.bits;
+    }
+
     if (std.meta.activeTag(a) != std.meta.activeTag(b)) return false;
     switch (a) {
         .boolean => return a.asBool() == b.asBool(),

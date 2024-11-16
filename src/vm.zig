@@ -7,7 +7,8 @@ const main = @import("main.zig");
 const memory = @import("memory.zig");
 const obj = @import("object.zig");
 const Table = @import("table.zig").Table;
-const Value = @import("value.zig").Value;
+const value = @import("value.zig");
+const Value = value.Value;
 const printValue = @import("value.zig").printValue;
 const toString = @import("value.zig").toString;
 const valuesEqual = @import("value.zig").valuesEqual;
@@ -42,7 +43,12 @@ pub const VM = struct {
     gray_stack: []?*obj.Obj,
 
     pub fn init(allocator: *std.mem.Allocator, writer: std.fs.File.Writer) !*VM {
-        const stack = [_]Value{.{ .none = {} }} ** STACK_MAX;
+        var stack: [STACK_MAX]Value = undefined;
+        if (main.NAN_BOXING) {
+            stack = [_]Value{.{ .bits = 0 }} ** STACK_MAX;
+        } else {
+            stack = [_]Value{.{ .none = {} }} ** STACK_MAX;
+        }
         const frames = [_]CallFrame{.{
             .closure = undefined,
             .ip = 0,
@@ -114,9 +120,9 @@ pub const VM = struct {
         return try self.run();
     }
 
-    pub fn push(self: *VM, value: Value) void {
+    pub fn push(self: *VM, val: Value) void {
         // print("[stack.push]\n", .{});
-        self.stack[self.stack_top] = value;
+        self.stack[self.stack_top] = val;
         self.stack_top += 1;
     }
 
@@ -156,7 +162,7 @@ pub const VM = struct {
         // print("[defineNative 3] self.stack[0]: {any}\n", .{self.stack[0]});
         // print("[defineNative 4]\n", .{});
         self.push(Value.object(&native_func.obj));
-        _ = self.globals.set(self.stack[0].asString(), self.stack[1]);
+        _ = self.globals.set(obj.asString(self.stack[0]), self.stack[1]);
         _ = self.pop();
         _ = self.pop();
         // print("[defineNative END]\n", .{});
@@ -192,7 +198,7 @@ pub const VM = struct {
                 .GREATER => _ = try self.binaryOp(bool, opGreater),
                 .LESS => _ = try self.binaryOp(bool, opLess),
                 .ADD => {
-                    if (self.peek(0).isString() and self.peek(1).isString()) {
+                    if (obj.isString(self.peek(0)) and obj.isString(self.peek(1))) {
                         try self.concatenate();
                     } else if (self.peek(0).isNumber() and self.peek(1).isNumber()) {
                         const b = self.pop().asNumber();
@@ -232,15 +238,15 @@ pub const VM = struct {
                     }
                 },
                 .GET_PROPERTY => {
-                    if (!self.peek(0).isInstance()) {
+                    if (!obj.isInstance(self.peek(0))) {
                         self.runtimeError("Only instances have properties.", .{});
                         return .INTERPRET_RUNTIME_ERROR;
                     }
-                    const instance = self.peek(0).asInstance();
+                    const instance = obj.asInstance(self.peek(0));
                     const name = self.readString();
-                    if (instance.fields.get(name)) |value| {
+                    if (instance.fields.get(name)) |val| {
                         _ = self.pop();
-                        self.push(value.*);
+                        self.push(val.*);
                     } else {
                         const successful_bind = try self.bindMethod(instance.class, name);
                         if (!successful_bind) {
@@ -250,13 +256,13 @@ pub const VM = struct {
                 },
                 .INHERIT => {
                     const superclass = self.peek(1);
-                    if (!superclass.isClass()) {
+                    if (!obj.isClass(superclass)) {
                         self.runtimeError("Superclass must be a class.", .{});
                         return .INTERPRET_RUNTIME_ERROR;
                     }
-                    const subclass = self.peek(0).asClass();
+                    const subclass = obj.asClass(self.peek(0));
 
-                    Table.setAll(superclass.asClass().methods, subclass.methods);
+                    Table.setAll(obj.asClass(superclass).methods, subclass.methods);
 
                     _ = self.pop();
                 },
@@ -264,15 +270,15 @@ pub const VM = struct {
                     self.defineMethod(self.readString());
                 },
                 .SET_PROPERTY => {
-                    if (!self.peek(1).isInstance()) {
+                    if (!obj.isInstance(self.peek(1))) {
                         self.runtimeError("Only instances have fields.", .{});
                         return .INTERPRET_RUNTIME_ERROR;
                     }
-                    const instance = self.peek(1).asInstance();
+                    const instance = obj.asInstance(self.peek(1));
                     _ = instance.fields.set(self.readString(), self.peek(0));
-                    const value = self.pop();
+                    const val = self.pop();
                     _ = self.pop();
-                    self.push(value);
+                    self.push(val);
                 },
                 .INVOKE => {
                     const method = self.readString();
@@ -284,7 +290,7 @@ pub const VM = struct {
                 },
                 .GET_SUPER => {
                     const name = self.readString();
-                    const superclass = self.pop().asClass();
+                    const superclass = obj.asClass(self.pop());
                     const successful_bind = try self.bindMethod(superclass, name);
                     if (!successful_bind) {
                         return .INTERPRET_RUNTIME_ERROR;
@@ -293,13 +299,13 @@ pub const VM = struct {
                 .SUPER_INVOKE => {
                     const method = self.readString();
                     const arg_count = self.readByte();
-                    const superclass = self.pop().asClass();
+                    const superclass = obj.asClass(self.pop());
                     if (self.invokeFromClass(superclass, method, arg_count)) {
                         return .INTERPRET_RUNTIME_ERROR;
                     }
                 },
                 .CLOSURE => {
-                    const func = self.readConstant().asFunction();
+                    const func = obj.asFunction(self.readConstant());
                     const closure = try obj.newClosure(self, func);
                     self.push(Value.object(&closure.obj));
                     for (0..closure.upvalue_count) |i| {
@@ -356,8 +362,8 @@ pub const VM = struct {
                 },
                 .GET_GLOBAL => {
                     const name = self.readString();
-                    if (self.globals.get(name)) |value| {
-                        self.push(value.*);
+                    if (self.globals.get(name)) |val| {
+                        self.push(val.*);
                     } else {
                         self.runtimeError("Undefined variable '{s}'.", .{name.chars});
                         return .INTERPRET_RUNTIME_ERROR;
@@ -437,7 +443,7 @@ pub const VM = struct {
     fn defineMethod(self: *VM, name: *obj.ObjString) void {
         // print("[defineMethod] {s}\n", .{name.chars});
         const method = self.peek(0);
-        const class = self.peek(1).asClass();
+        const class = obj.asClass(self.peek(1));
         _ = class.methods.set(name, method);
         _ = self.pop();
     }
@@ -448,7 +454,7 @@ pub const VM = struct {
             const bound = try obj.newBoundMethod(
                 self,
                 self.peek(0),
-                method.asClosure(),
+                obj.asClosure(method.*),
             );
             _ = self.pop();
             self.push(Value.object(&bound.obj));
@@ -461,27 +467,27 @@ pub const VM = struct {
 
     fn callValue(self: *VM, callee: Value, arg_count: u8) !bool {
         if (callee.isObject()) {
-            switch (callee.objType()) {
+            switch (obj.objType(callee)) {
                 .bound_method => {
-                    const bound = callee.asBoundMethod();
+                    const bound = obj.asBoundMethod(callee);
                     self.stack[self.stack_top - arg_count - 1] = bound.receiver;
                     return self.call(bound.method, arg_count);
                 },
                 .class => {
-                    const class = callee.asClass();
+                    const class = obj.asClass(callee);
                     const inst = try obj.newInstance(self, class);
                     self.stack[self.stack_top - arg_count - 1] = Value.object(&inst.obj);
                     if (class.methods.get(self.init_string.?)) |initializer| {
-                        return self.call(initializer.asClosure(), arg_count);
+                        return self.call(obj.asClosure(initializer.*), arg_count);
                     } else if (arg_count != 0) {
                         self.runtimeError("Expected 0 arguments but got {d}.\n", .{arg_count});
                         return false;
                     }
                     return true;
                 },
-                .closure => return self.call(callee.asClosure(), arg_count),
+                .closure => return self.call(obj.asClosure(callee), arg_count),
                 .native => {
-                    const native = callee.asNative();
+                    const native = obj.asNative(callee);
                     const args = self.stack[self.stack_top - arg_count .. self.stack_top];
                     const result = native(arg_count, args);
                     self.stack_top -= arg_count + 1;
@@ -497,22 +503,22 @@ pub const VM = struct {
 
     fn invoke(self: *VM, name: *obj.ObjString, arg_count: u8) !bool {
         const receiver = self.peek(arg_count);
-        if (!receiver.isInstance()) {
+        if (!obj.isInstance(receiver)) {
             self.runtimeError("Only instances have methods.\n", .{});
             return false;
         }
-        const instance = receiver.asInstance();
-        if (instance.fields.get(name)) |value| {
+        const instance = obj.asInstance(receiver);
+        if (instance.fields.get(name)) |val| {
             // ? Correct math
-            self.stack[self.stack_top - arg_count - 1] = value.*;
-            return try self.callValue(value.*, arg_count);
+            self.stack[self.stack_top - arg_count - 1] = val.*;
+            return try self.callValue(val.*, arg_count);
         }
         return self.invokeFromClass(instance.class, name, arg_count);
     }
 
     fn invokeFromClass(self: *VM, class: *obj.ObjClass, name: *obj.ObjString, arg_count: u8) bool {
         if (class.methods.get(name)) |method| {
-            return self.call(method.asClosure(), arg_count);
+            return self.call(obj.asClosure(method.*), arg_count);
         } else {
             self.runtimeError("Undefined property '{s}'.\n", .{name.chars});
             return false;
@@ -547,13 +553,13 @@ pub const VM = struct {
         }
     }
 
-    fn isFalsey(value: Value) bool {
-        return value.isNil() or (value.isBool() and !value.asBool());
+    fn isFalsey(val: Value) bool {
+        return val.isNil() or (val.isBool() and !val.asBool());
     }
 
     fn concatenate(self: *VM) !void {
-        const b = self.peek(0).asString();
-        const a = self.peek(1).asString();
+        const b = obj.asString(self.peek(0));
+        const a = obj.asString(self.peek(1));
 
         const length = a.chars.len + b.chars.len;
         var chars = self.allocator.reallocate(u8, null, length);
@@ -591,7 +597,7 @@ pub const VM = struct {
     }
 
     fn readString(self: *VM) *obj.ObjString {
-        return self.readConstant().asString();
+        return obj.asString(self.readConstant());
     }
 
     fn binaryOp(
@@ -606,12 +612,12 @@ pub const VM = struct {
         const b = self.pop().asNumber();
         const a = self.pop().asNumber();
         const result = op(a, b);
-        const value = switch (ReturnType) {
+        const val = switch (ReturnType) {
             bool => Value.bool(result),
             f64 => Value.number(result),
             else => @compileError("Unsupported result type in binaryOp"),
         };
-        self.push(value);
+        self.push(val);
         return .INTERPRET_OK;
     }
 };

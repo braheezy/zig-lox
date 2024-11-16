@@ -338,3 +338,78 @@ fn hashString(key: []const u8) u64 {
     }
     return hash;
 }
+
+pub fn isClass(value: Value) bool {
+    return isObjType(value, .class);
+}
+
+pub fn isInstance(value: Value) bool {
+    return isObjType(value, .instance);
+}
+
+pub fn isString(value: Value) bool {
+    return isObjType(value, .string);
+}
+
+pub fn isFunction(value: Value) bool {
+    return isObjType(value, .function);
+}
+
+pub fn isBoundMethod(value: Value) bool {
+    return isObjType(value, .bound_method);
+}
+
+pub fn isNative(value: Value) bool {
+    return isObjType(value, .native);
+}
+
+pub fn isClosure(value: Value) bool {
+    return isObjType(value, .closure);
+}
+
+pub fn isObjType(value: Value, target_obj_type: ObjType) bool {
+    return value.isObject() and value.asObject().obj_type == target_obj_type;
+}
+
+pub fn asBoundMethod(value: Value) *ObjBoundMethod {
+    return asType(ObjBoundMethod, value);
+}
+
+pub fn asClass(value: Value) *ObjClass {
+    return asType(ObjClass, value);
+}
+
+pub fn asInstance(value: Value) *ObjInstance {
+    return asType(ObjInstance, value);
+}
+
+pub fn asType(comptime T: type, value: Value) *T {
+    const obj_ptr = value.asObject();
+    return @alignCast(@fieldParentPtr("obj", obj_ptr));
+}
+
+pub fn asFunction(value: Value) *ObjFunction {
+    return asType(ObjFunction, value);
+}
+
+pub fn asNative(value: Value) NativeFn {
+    const result = asType(ObjNative, value);
+    return result.function;
+}
+
+pub fn asClosure(value: Value) *ObjClosure {
+    return asType(ObjClosure, value);
+}
+
+pub fn asString(value: Value) *ObjString {
+    return asType(ObjString, value);
+}
+
+pub fn asCString(value: Value) []const u8 {
+    const obj_string = asString(value);
+    return obj_string.chars;
+}
+
+pub fn objType(value: Value) ObjType {
+    return value.asObject().obj_type;
+}

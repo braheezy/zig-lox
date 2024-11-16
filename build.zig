@@ -11,10 +11,12 @@ pub fn build(b: *std.Build) !void {
     const debug = b.option(bool, "debug", "enable debug output") orelse false;
     const stress = b.option(bool, "stress", "enable gc stress") orelse false;
     const gclog = b.option(bool, "gclog", "enable gc log") orelse false;
+    const nan_boxing = b.option(bool, "nanbox", "enable nan boxing") orelse false;
     var options = b.addOptions();
     options.addOption(bool, "debug", debug);
     options.addOption(bool, "stress_gc", stress);
     options.addOption(bool, "log_gc", gclog);
+    options.addOption(bool, "nan_boxing", nan_boxing);
 
     exe.root_module.addOptions("config", options);
 
