@@ -60,25 +60,24 @@ pub const NanBoxedValue = packed struct {
     }
 };
 
-pub const UnionValue =
-    union(enum) {
+pub const UnionValue = union(enum) {
     none,
     boolean: bool,
-    number: f64,
-    object: *obj.Obj,
+    num: f64,
+    obj: *obj.Obj,
 
     pub fn number(value: f64) Value {
         // std.debug.print("[value.number]\n", .{});
-        return Value{ .number = value };
+        return Value{ .num = value };
     }
     pub fn asNumber(self: Value) f64 {
         return switch (self) {
-            .number => |n| n,
+            .num => |n| n,
             else => std.debug.panic("Value is not a number, it's: {any}", .{self}),
         };
     }
     pub fn isNumber(self: Value) bool {
-        return self == .number;
+        return self == .num;
     }
 
     pub fn nil() Value {
@@ -102,14 +101,14 @@ pub const UnionValue =
     }
 
     pub fn object(value: *obj.Obj) Value {
-        return Value{ .object = value };
+        return Value{ .obj = value };
     }
     pub fn isObject(self: Value) bool {
-        return self == .object;
+        return self == .obj;
     }
     pub fn asObject(self: Value) *obj.Obj {
         return switch (self) {
-            .object => |o| o,
+            .obj => |o| o,
             else => std.debug.panic("Value is not an object, it's: {any}", .{self}),
         };
     }
@@ -149,11 +148,10 @@ pub const ValueArray = struct {
         self.values = &[_]Value{};
         self.len = 0;
         self.capacity = 0;
-        // _ = self;
     }
 };
 
-pub fn printValue(value: Value, writer: std.fs.File.Writer) !void {
+pub fn printValue(value: Value, writer: *std.Io.Writer) !void {
     if (NAN_BOXING) {
         if (value.isBool()) {
             try writer.print("{s}", .{if (value.asBool()) "true" else "false"});
@@ -167,8 +165,8 @@ pub fn printValue(value: Value, writer: std.fs.File.Writer) !void {
     } else {
         switch (value) {
             .boolean => try writer.print("{s}", .{if (value.asBool()) "true" else "false"}),
-            .number => try writer.print("{d}", .{value.asNumber()}),
-            .object => try printObject(value, writer),
+            .num => try writer.print("{d}", .{value.asNumber()}),
+            .obj => try printObject(value, writer),
             .none => try writer.print("nil", .{}),
         }
     }
@@ -177,8 +175,8 @@ pub fn printValue(value: Value, writer: std.fs.File.Writer) !void {
 pub fn toString(value: Value, allocator: *std.mem.Allocator) ![]const u8 {
     return switch (value) {
         .boolean => if (value.asBool()) "true" else "false",
-        .number => try std.fmt.allocPrint(allocator.*, "{d}", .{value.asNumber()}),
-        .object => {
+        .num => try std.fmt.allocPrint(allocator.*, "{d}", .{value.asNumber()}),
+        .obj => {
             return switch (value.objType()) {
                 .string => value.asCString(),
                 .function => if (value.asFunction().name) |name| name.chars else "",
@@ -191,7 +189,7 @@ pub fn toString(value: Value, allocator: *std.mem.Allocator) ![]const u8 {
     };
 }
 
-fn printObject(value: Value, writer: std.fs.File.Writer) !void {
+fn printObject(value: Value, writer: *std.Io.Writer) !void {
     switch (obj.objType(value)) {
         .string => try writer.print("{s}", .{obj.asCString(value)}),
         .function => {
@@ -222,7 +220,7 @@ pub fn valuesEqual(a: Value, b: Value) bool {
     switch (a) {
         .boolean => return a.asBool() == b.asBool(),
         .none => return true,
-        .number => return a.asNumber() == b.asNumber(),
-        .object => return a.asObject() == b.asObject(),
+        .num => return a.asNumber() == b.asNumber(),
+        .obj => return a.asObject() == b.asObject(),
     }
 }

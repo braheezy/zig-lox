@@ -32,7 +32,7 @@ pub const VM = struct {
     frame_count: u8,
     stack: [STACK_MAX]Value,
     stack_top: usize,
-    writer: std.fs.File.Writer,
+    writer: *std.Io.Writer,
     objects: ?*obj.Obj,
     init_string: ?*obj.ObjString,
     open_upvalues: ?*obj.ObjUpvalue,
@@ -42,7 +42,7 @@ pub const VM = struct {
     gray_capacity: usize,
     gray_stack: []?*obj.Obj,
 
-    pub fn init(allocator: *std.mem.Allocator, writer: std.fs.File.Writer) !*VM {
+    pub fn init(allocator: *std.mem.Allocator, writer: *std.Io.Writer) !*VM {
         var stack: [STACK_MAX]Value = undefined;
         if (main.NAN_BOXING) {
             stack = [_]Value{.{ .bits = 0 }} ** STACK_MAX;
@@ -403,6 +403,7 @@ pub const VM = struct {
                     return .INTERPRET_COMPILE_ERROR;
                 },
             }
+            try self.writer.flush();
         }
     }
 

@@ -67,7 +67,7 @@ pub const ObjFunction = struct {
     chunk: Chunk,
     name: ?*ObjString,
 
-    pub fn print(self: *ObjFunction, writer: std.fs.File.Writer) !void {
+    pub fn print(self: *ObjFunction, writer: *std.Io.Writer) !void {
         if (self.name) |name| {
             try writer.print("<fn {s}>", .{name.chars});
         } else {

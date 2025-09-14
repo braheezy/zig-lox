@@ -15,3 +15,12 @@ class Cruller < Doughnut {
     super.finish("icing");
   }
 }
+
+// Test the classes
+print "Creating a regular doughnut:";
+var doughnut = Doughnut();
+doughnut.cook();
+
+print "Creating a cruller:";
+var cruller = Cruller();
+cruller.cook();

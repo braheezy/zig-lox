@@ -22,13 +22,19 @@ pub var allocator = gpa.allocator();
 
 pub var vm: *VM = undefined;
 
+var stdout_buffer: [1024]u8 = undefined;
+var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+const stdout = &stdout_writer.interface;
+
+var stdin_buffer: [1024]u8 = undefined;
+var stdin_reader = std.fs.File.stdin().reader(&stdin_buffer);
+const stdin = &stdin_reader.interface;
+
 pub fn main() !void {
     defer if (gpa.deinit() == .leak) {
         std.process.exit(1);
     };
-    const stdout = std.io.getStdOut();
-    const writer = stdout.writer();
-    vm = try VM.init(&allocator, writer);
+    vm = try VM.init(&allocator, stdout);
     defer vm.free();
 
     // Read arguments
@@ -58,22 +64,20 @@ pub fn main() !void {
     if (path) |p| {
         try runFile(p);
     } else if (eval_mode) {
-        try repl(writer, true);
+        try repl(stdout, true);
     } else {
         // No arguments, run normal REPL
-        try repl(writer, false);
+        try repl(stdout, false);
     }
 }
 
-pub fn repl(writer: std.fs.File.Writer, hide_output: bool) !void {
-    const stdin = std.io.getStdIn();
-    var buffer: [1024]u8 = undefined;
+pub fn repl(writer: *std.Io.Writer, hide_output: bool) !void {
     while (true) {
         if (!hide_output) {
             try writer.print("> ", .{});
         }
 
-        const line = nextLine(stdin.reader(), &buffer) catch |err| {
+        const line = nextLine(stdin) catch |err| {
             print("error reading next line: {s}", .{@errorName(err)});
             std.process.exit(12);
         } orelse {
@@ -104,28 +108,26 @@ pub fn runFile(path: []u8) !void {
     };
     defer file.close();
 
-    const file_bytes: [:0]u8 = file.readToEndAllocOptions(
-        allocator,
-        one_mb,
-        0,
-        @alignOf(u8),
-        0,
-    ) catch |err| {
-        print("Failed to read file {s}: {s}.\n", .{ path, @errorName(err) });
-        std.process.exit(74);
-    };
+    var buffer: [32]u8 = undefined;
+    var file_reader = std.fs.File.reader(file, &buffer);
+    const file_size = try file_reader.getSize();
+    const file_bytes: [:0]u8 = try allocator.allocSentinel(u8, file_size, 0);
     defer allocator.free(file_bytes);
+    _ = try file_reader.read(file_bytes);
+
     const result = try vm.interpret(file_bytes);
 
     if (result == InterpretResult.INTERPRET_COMPILE_ERROR) std.process.exit(65);
     if (result == InterpretResult.INTERPRET_RUNTIME_ERROR) std.process.exit(70);
 }
 
-fn nextLine(reader: anytype, buffer: []u8) !?[]u8 {
-    var line = (try reader.readUntilDelimiterOrEof(
-        buffer,
+fn nextLine(reader: *std.Io.Reader) !?[]u8 {
+    var line = reader.takeDelimiterExclusive(
         '\n',
-    )) orelse return null;
+    ) catch |err| switch (err) {
+        error.EndOfStream => return null,
+        else => return err,
+    };
     // trim annoying windows-only carriage return character
     if (@import("builtin").os.tag == .windows) {
         line = std.mem.trimRight(u8, line, "\r");
